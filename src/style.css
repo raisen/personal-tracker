@@ -548,9 +548,26 @@ dialog h2 {
     gap: 8px;
   }
 
+  .nav-links {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .entry-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
   .entry-summary {
     flex-direction: column;
     gap: 4px;
+  }
+
+  .card-actions {
+    justify-content: flex-end;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
   }
 
   .toast-container {
