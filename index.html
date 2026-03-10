@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>" />
+</head>
+<body>
+  <nav id="nav" class="nav" hidden>
+    <span id="nav-title" class="nav-title">Personal Tracker</span>
+    <div class="nav-links">
+      <a href="#entry" class="nav-link" data-view="entry">Entry</a>
+      <a href="#history" class="nav-link" data-view="history">History</a>
+      <a href="#settings" class="nav-link" data-view="settings">Settings</a>
+    </div>
+  </nav>
+  <main id="app"></main>
+  <div id="toast-container" class="toast-container"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
