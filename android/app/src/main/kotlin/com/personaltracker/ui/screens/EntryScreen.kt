@@ -17,13 +17,13 @@ import java.time.LocalDate
 fun EntryScreen(entryId: String? = null) {
     val scope = rememberCoroutineScope()
     val snackbarHost = remember { SnackbarHostState() }
-    var config by remember { mutableStateOf<TrackerConfig?>(null) }
-    var existingEntry by remember { mutableStateOf<Entry?>(null) }
-    var fieldValues by remember { mutableStateOf<MutableMap<String, Any?>>(mutableMapOf()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var isSaving by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var loadedDate by remember { mutableStateOf("") }
+    var config by remember(entryId) { mutableStateOf<TrackerConfig?>(null) }
+    var existingEntry by remember(entryId) { mutableStateOf<Entry?>(null) }
+    var fieldValues by remember(entryId) { mutableStateOf<MutableMap<String, Any?>>(mutableMapOf()) }
+    var isLoading by remember(entryId) { mutableStateOf(true) }
+    var isSaving by remember(entryId) { mutableStateOf(false) }
+    var errorMessage by remember(entryId) { mutableStateOf<String?>(null) }
+    var loadedDate by remember(entryId) { mutableStateOf("") }
 
     fun loadData() {
         scope.launch {
