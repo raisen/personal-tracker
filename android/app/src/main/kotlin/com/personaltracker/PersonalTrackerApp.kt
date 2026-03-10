@@ -87,12 +87,7 @@ fun PersonalTrackerApp() {
             }
             composable(Screen.History.route) {
                 HistoryScreen(onEditEntry = { entry ->
-                    navController.navigate("entry?entryId=${Uri.encode(entry._id)}") {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                    }
+                    navController.navigate("entry?entryId=${Uri.encode(entry._id)}")
                 })
             }
             composable(Screen.Insights.route) {
