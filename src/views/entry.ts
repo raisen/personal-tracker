@@ -48,7 +48,10 @@ function renderForm(
   const isEdit = existing !== null;
 
   container.innerHTML = `
-    <h2 class="mb-16">${isEdit ? 'Edit Entry' : 'New Entry'}</h2>
+    <div class="mb-16" style="display:flex;align-items:center;justify-content:space-between">
+      <h2 style="margin:0">${isEdit ? 'Edit Entry' : 'New Entry'}</h2>
+      ${isEdit ? '<button id="new-entry-btn" class="btn btn-secondary btn-sm">+ New Entry</button>' : ''}
+    </div>
     <form id="entry-form"></form>
     <div class="mt-16">
       <button type="submit" form="entry-form" class="btn btn-primary btn-block">
@@ -58,6 +61,13 @@ function renderForm(
   `;
 
   const form = container.querySelector('#entry-form') as HTMLFormElement;
+
+  const newEntryBtn = container.querySelector('#new-entry-btn');
+  if (newEntryBtn) {
+    newEntryBtn.addEventListener('click', () => {
+      renderForm(container, config, null);
+    });
+  }
 
   for (const field of config.fields) {
     let defaultValue = existing?.[field.id];
