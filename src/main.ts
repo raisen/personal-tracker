@@ -5,18 +5,19 @@ import { renderSetup } from './views/setup';
 import { renderEntry, clearEntryCache } from './views/entry';
 import { renderHistory } from './views/history';
 import { renderSettings } from './views/settings';
+import { renderInsights } from './views/insights';
 import { renderField, getFieldValue } from './components/field-renderer';
 import { showToast } from './components/toast';
 import type { Entry } from './types';
 
-type View = 'entry' | 'history' | 'settings';
+type View = 'entry' | 'history' | 'insights' | 'settings';
 
 const app = document.getElementById('app')!;
 const nav = document.getElementById('nav')!;
 
 function getView(): View {
   const hash = window.location.hash.replace('#', '').split('?')[0]!;
-  if (['entry', 'history', 'settings'].includes(hash)) return hash as View;
+  if (['entry', 'history', 'insights', 'settings'].includes(hash)) return hash as View;
   // Check for gist= in hash (shareable link)
   if (hash.startsWith('gist=')) return 'entry';
   return 'entry';
@@ -81,6 +82,9 @@ async function renderView(): Promise<void> {
       break;
     case 'history':
       await renderHistory(app);
+      break;
+    case 'insights':
+      await renderInsights(app);
       break;
     case 'settings':
       await renderSettings(app);

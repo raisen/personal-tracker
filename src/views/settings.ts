@@ -2,7 +2,8 @@ import { loadGist, saveConfig } from '../api';
 import { getToken, getGistId, disconnect, getShareableUrl } from '../auth';
 import { showToast } from '../components/toast';
 import { openFieldEditor } from '../components/field-editor';
-import type { TrackerConfig } from '../types';
+import { createModal } from '../components/modal';
+import type { TrackerConfig, InsightPrompt } from '../types';
 
 let currentConfig: TrackerConfig | null = null;
 
@@ -48,6 +49,13 @@ function renderSettingsView(container: HTMLElement): void {
     </div>
 
     <div class="settings-section">
+      <h2>Insight Prompts</h2>
+      <p class="text-secondary text-sm mb-8">Prompts that appear on the Insights tab. Each copies your data + the prompt to clipboard for claude.ai.</p>
+      <div id="prompt-list"></div>
+      <button id="add-prompt-btn" class="btn btn-secondary btn-block mt-16">+ Add Prompt</button>
+    </div>
+
+    <div class="settings-section">
       <h2>Save</h2>
       <button id="save-settings-btn" class="btn btn-primary btn-block">Save Settings</button>
     </div>
@@ -72,11 +80,23 @@ function renderSettingsView(container: HTMLElement): void {
 
   renderFieldList(container, config);
 
+  // Initialize prompts array if missing
+  if (!config.prompts) config.prompts = [];
+  renderPromptList(container, config);
+
   // Add field
   container.querySelector('#add-field-btn')!.addEventListener('click', () => {
     openFieldEditor(null, (field) => {
       config.fields.push(field);
       renderFieldList(container, config);
+    });
+  });
+
+  // Add prompt
+  container.querySelector('#add-prompt-btn')!.addEventListener('click', () => {
+    openPromptEditor(null, (prompt) => {
+      config.prompts!.push(prompt);
+      renderPromptList(container, config);
     });
   });
 
@@ -194,6 +214,100 @@ function renderFieldList(container: HTMLElement, config: TrackerConfig): void {
 
     list.appendChild(item);
   });
+}
+
+function renderPromptList(container: HTMLElement, config: TrackerConfig): void {
+  const list = container.querySelector('#prompt-list') as HTMLDivElement;
+  list.innerHTML = '';
+
+  const prompts = config.prompts || [];
+
+  if (prompts.length === 0) {
+    list.innerHTML = '<p class="text-secondary text-sm">No prompts yet. Add one to get started.</p>';
+    return;
+  }
+
+  prompts.forEach((prompt, index) => {
+    const item = document.createElement('div');
+    item.className = 'field-list-item';
+
+    item.innerHTML = `
+      <div class="field-info">
+        <div class="field-name">${escHtml(prompt.label)}</div>
+        <div class="field-meta">${escHtml(prompt.prompt.slice(0, 80))}${prompt.prompt.length > 80 ? '...' : ''}</div>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-secondary btn-sm edit-prompt-btn">Edit</button>
+        <button class="btn btn-danger btn-sm delete-prompt-btn">Del</button>
+      </div>
+    `;
+
+    item.querySelector('.edit-prompt-btn')!.addEventListener('click', () => {
+      openPromptEditor(prompt, (updated) => {
+        config.prompts![index] = updated;
+        renderPromptList(container, config);
+      });
+    });
+
+    item.querySelector('.delete-prompt-btn')!.addEventListener('click', () => {
+      if (confirm(`Delete prompt "${prompt.label}"?`)) {
+        config.prompts!.splice(index, 1);
+        renderPromptList(container, config);
+      }
+    });
+
+    list.appendChild(item);
+  });
+}
+
+function openPromptEditor(
+  existing: InsightPrompt | null,
+  onSave: (prompt: InsightPrompt) => void,
+): void {
+  const modal = createModal(existing ? 'Edit Prompt' : 'Add Prompt');
+
+  modal.body.innerHTML = `
+    <div class="form-group">
+      <label class="form-label">Label</label>
+      <input type="text" class="form-input" id="prompt-label" value="${existing ? escHtml(existing.label) : ''}" placeholder="e.g. Weekly Summary" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Prompt</label>
+      <textarea class="form-textarea" id="prompt-text" rows="6" placeholder="e.g. Analyze my mood trends over the past week...">${existing ? escHtml(existing.prompt) : ''}</textarea>
+    </div>
+  `;
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn btn-primary';
+  saveBtn.textContent = existing ? 'Update' : 'Add';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn btn-secondary';
+  cancelBtn.textContent = 'Cancel';
+
+  modal.actions.appendChild(cancelBtn);
+  modal.actions.appendChild(saveBtn);
+
+  cancelBtn.addEventListener('click', () => modal.close());
+
+  saveBtn.addEventListener('click', () => {
+    const label = (modal.dialog.querySelector('#prompt-label') as HTMLInputElement).value.trim();
+    const prompt = (modal.dialog.querySelector('#prompt-text') as HTMLTextAreaElement).value.trim();
+
+    if (!label) {
+      showToast('Label is required', 'error');
+      return;
+    }
+    if (!prompt) {
+      showToast('Prompt text is required', 'error');
+      return;
+    }
+
+    onSave({ label, prompt });
+    modal.close();
+  });
+
+  modal.show();
 }
 
 function escHtml(s: string): string {

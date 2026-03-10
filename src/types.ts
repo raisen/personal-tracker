@@ -22,10 +22,16 @@ export interface FieldConfig {
   placeholder?: string;
 }
 
+export interface InsightPrompt {
+  label: string;
+  prompt: string;
+}
+
 export interface TrackerConfig {
   version: number;
   title: string;
   fields: FieldConfig[];
+  prompts?: InsightPrompt[];
 }
 
 export interface Entry {
