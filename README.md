@@ -18,7 +18,7 @@ npm run build    # production build → dist/
 
 The latest debug APK is built automatically on every push to `main` and published as a GitHub release.
 
-**[Download latest APK](../../releases/download/debug-latest/app-debug.apk)** — open this link on your phone to install directly.
+**[Download latest APK](https://github.com/raisen/personal-tracker/releases/download/debug-latest/app-debug.apk)** — open this link on your phone to install directly.
 
 To build locally:
 
