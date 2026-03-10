@@ -14,7 +14,7 @@ import java.time.Instant
 import java.time.LocalDate
 
 @Composable
-fun EntryScreen() {
+fun EntryScreen(entryId: String? = null) {
     val scope = rememberCoroutineScope()
     val snackbarHost = remember { SnackbarHostState() }
     var config by remember { mutableStateOf<TrackerConfig?>(null) }
@@ -23,6 +23,7 @@ fun EntryScreen() {
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var loadedDate by remember { mutableStateOf("") }
 
     fun loadData() {
         scope.launch {
@@ -34,14 +35,21 @@ fun EntryScreen() {
                 val (cfg, data) = GistApi.loadGist(token, gistId)
                 config = cfg
 
-                // Check if today's entry exists
                 val today = LocalDate.now().toString()
-                val existing = data.entries.find { entry ->
-                    val dateField = cfg.fields.find { it.type == FieldType.DATE }
-                    if (dateField != null) {
-                        entry.fields[dateField.id] == today
-                    } else {
-                        entry._created.startsWith(today)
+                loadedDate = today
+
+                val existing = if (entryId != null) {
+                    // Editing a specific entry from History
+                    data.entries.find { it._id == entryId }
+                } else {
+                    // Default: find today's entry
+                    data.entries.find { entry ->
+                        val dateField = cfg.fields.find { it.type == FieldType.DATE }
+                        if (dateField != null) {
+                            entry.fields[dateField.id] == today
+                        } else {
+                            entry._created.startsWith(today)
+                        }
                     }
                 }
 
@@ -64,7 +72,16 @@ fun EntryScreen() {
         }
     }
 
-    LaunchedEffect(Unit) { loadData() }
+    // Reload when entryId changes (navigating from History to edit a specific entry)
+    LaunchedEffect(entryId) { loadData() }
+
+    // Reload if the date has changed (e.g., screen was cached overnight)
+    val currentDate = LocalDate.now().toString()
+    LaunchedEffect(currentDate) {
+        if (loadedDate.isNotEmpty() && loadedDate != currentDate && entryId == null) {
+            loadData()
+        }
+    }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHost) }) { padding ->
         if (isLoading) {
