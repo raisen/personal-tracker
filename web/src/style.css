@@ -355,6 +355,16 @@ body {
   background: var(--bg-hover);
 }
 
+.entry-row.hold-active {
+  background: var(--danger);
+  color: #fff;
+  transition: background 0.2s;
+}
+
+.entry-row.hold-active .entry-field-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
 .entry-summary {
   display: flex;
   gap: 16px;
@@ -606,10 +616,6 @@ dialog h2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-  }
-
-  .card-actions {
-    justify-content: flex-end;
   }
 
   .toast-container {
