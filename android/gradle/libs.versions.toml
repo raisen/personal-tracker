@@ -9,6 +9,8 @@ okhttp = "4.12.0"
 gson = "2.11.0"
 lifecycleRuntime = "2.8.7"
 coroutines = "1.9.0"
+glance = "1.1.1"
+workmanager = "2.10.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -25,6 +27,9 @@ navigation-compose = { group = "androidx.navigation", name = "navigation-compose
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 kotlinx-coroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
+glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
+work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workmanager" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

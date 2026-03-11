@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.personaltracker.data.*
 import com.personaltracker.ui.components.*
+import com.personaltracker.widget.WidgetRefreshWorker
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -128,6 +129,10 @@ fun EntriesScreen() {
                 val (cfg, data) = GistApi.loadGist(token, gistId)
                 config = cfg
                 allEntries = data.entries.sortedByDescending { it._created }
+
+                // Update widget cache
+                WidgetDataManager.cacheData(context, cfg, data)
+                WidgetRefreshWorker.updateWidgets(context)
 
                 // Restore editing state
                 val savedId = prefs.getString(PREF_EDITING_ENTRY, null)
@@ -267,8 +272,13 @@ fun EntriesScreen() {
                             val token = AuthManager.getToken()!!
                             val gistId = AuthManager.getGistId()!!
                             val newEntries = allEntries.filter { it._id != entry._id }
-                            GistApi.saveData(token, gistId, TrackerData(newEntries))
+                            val deletedData = TrackerData(newEntries)
+                            GistApi.saveData(token, gistId, deletedData)
                             allEntries = newEntries
+                            config?.let { cfg ->
+                                WidgetDataManager.cacheData(context, cfg, deletedData)
+                                WidgetRefreshWorker.updateWidgets(context)
+                            }
                             snackbarHost.showSnackbar("Entry deleted")
                         } catch (e: Exception) {
                             snackbarHost.showSnackbar("Failed to delete: ${e.message}")
@@ -384,8 +394,13 @@ fun EntriesScreen() {
                                                 entries.add(entry)
                                             }
 
-                                            GistApi.saveData(token, gistId, TrackerData(entries))
+                                            val savedData = TrackerData(entries)
+                                            GistApi.saveData(token, gistId, savedData)
                                             allEntries = entries.sortedByDescending { it._created }
+                                            config?.let { cfg ->
+                                                WidgetDataManager.cacheData(context, cfg, savedData)
+                                                WidgetRefreshWorker.updateWidgets(context)
+                                            }
                                             snackbarHost.showSnackbar(if (isEdit) "Entry updated!" else "Entry saved!")
                                             goBackToList()
                                         } catch (e: Exception) {
