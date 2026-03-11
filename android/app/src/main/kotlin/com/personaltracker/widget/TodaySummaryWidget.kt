@@ -2,6 +2,7 @@ package com.personaltracker.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -18,7 +19,6 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import android.graphics.Color
 import com.personaltracker.MainActivity
 import com.personaltracker.data.Entry
 import com.personaltracker.data.FieldConfig
@@ -44,7 +44,7 @@ class TodaySummaryWidget : GlanceAppWidget() {
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(ColorProvider(Color.WHITE, Color.parseColor("#1E1E2E")))
+                .background(GlanceTheme.colors.surface)
                 .clickable(actionStartActivity<MainActivity>())
         ) {
             Column(
@@ -58,7 +58,7 @@ class TodaySummaryWidget : GlanceAppWidget() {
                     style = TextStyle(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = ColorProvider(Color.parseColor("#6C5CE7"), Color.parseColor("#A29BFE"))
+                        color = ColorProvider(Color(0xFF6C5CE7))
                     ),
                     maxLines = 1
                 )
@@ -76,7 +76,7 @@ class TodaySummaryWidget : GlanceAppWidget() {
                                 text = "No entry today",
                                 style = TextStyle(
                                     fontSize = 13.sp,
-                                    color = ColorProvider(Color.GRAY, Color.LTGRAY)
+                                    color = GlanceTheme.colors.onSurfaceVariant
                                 )
                             )
                             Spacer(modifier = GlanceModifier.height(4.dp))
@@ -85,7 +85,7 @@ class TodaySummaryWidget : GlanceAppWidget() {
                                 style = TextStyle(
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = ColorProvider(Color.parseColor("#6C5CE7"), Color.parseColor("#A29BFE"))
+                                    color = ColorProvider(Color(0xFF6C5CE7))
                                 )
                             )
                         }
@@ -115,7 +115,7 @@ class TodaySummaryWidget : GlanceAppWidget() {
                                     text = "${field.icon} ${field.label}:",
                                     style = TextStyle(
                                         fontSize = 12.sp,
-                                        color = ColorProvider(Color.GRAY, Color.LTGRAY)
+                                        color = GlanceTheme.colors.onSurfaceVariant
                                     ),
                                     maxLines = 1
                                 )
@@ -125,7 +125,7 @@ class TodaySummaryWidget : GlanceAppWidget() {
                                     style = TextStyle(
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = ColorProvider(Color.parseColor("#333333"), Color.parseColor("#E0E0E0"))
+                                        color = GlanceTheme.colors.onSurface
                                     ),
                                     maxLines = 1
                                 )
