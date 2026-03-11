@@ -24,7 +24,8 @@ data class FieldConfig(
     val max: Double? = null,
     val step: Double? = null,
     val multiline: Boolean? = null,
-    val placeholder: String? = null
+    val placeholder: String? = null,
+    val showInList: Boolean? = null
 )
 
 data class InsightPrompt(

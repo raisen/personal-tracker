@@ -8,6 +8,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.personaltracker.data.FieldConfig
@@ -42,6 +44,7 @@ fun FieldEditorDialog(
     var stepValue by remember { mutableStateOf(existingField?.step?.let { if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString() } ?: "") }
     var multiline by remember { mutableStateOf(existingField?.multiline ?: false) }
     var placeholder by remember { mutableStateOf(existingField?.placeholder ?: "") }
+    var showInList by remember { mutableStateOf(existingField?.showInList ?: true) }
     var labelError by remember { mutableStateOf(false) }
     var typeExpanded by remember { mutableStateOf(false) }
 
@@ -108,6 +111,19 @@ fun FieldEditorDialog(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = required, onCheckedChange = { required = it })
                     Text("Required")
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Show in entries list")
+                    Switch(
+                        checked = showInList,
+                        onCheckedChange = { showInList = it },
+                        modifier = Modifier.semantics { contentDescription = "Show in entries list" }
+                    )
                 }
 
                 if (needsOptions) {
@@ -190,6 +206,7 @@ fun FieldEditorDialog(
                     step = if (needsRange) stepValue.toDoubleOrNull() else null,
                     multiline = if (isText) multiline else null,
                     placeholder = if (isText && placeholder.isNotBlank()) placeholder.trim() else null,
+                    showInList = showInList,
                 )
                 onSave(field)
             }) { Text(if (isEdit) "Save" else "Add") }
