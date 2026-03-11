@@ -20,6 +20,7 @@ export interface FieldConfig {
   step?: number;
   multiline?: boolean;
   placeholder?: string;
+  showInList?: boolean;
 }
 
 export interface InsightPrompt {

@@ -3,6 +3,7 @@ package com.personaltracker.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +16,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.personaltracker.data.*
+import com.personaltracker.ui.components.FadeInColumn
+import com.personaltracker.ui.components.ShimmerLoadingList
 import com.personaltracker.ui.components.getDataRangeLabel
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -83,9 +86,9 @@ fun InsightsScreen() {
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHost) }) { padding ->
         if (isLoading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            ShimmerLoadingList(
+                modifier = Modifier.fillMaxSize().padding(padding)
+            )
             return@Scaffold
         }
 
@@ -104,7 +107,7 @@ fun InsightsScreen() {
 
         val cfg = config ?: return@Scaffold
 
-        Column(
+        FadeInColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -144,7 +147,10 @@ fun InsightsScreen() {
                                 p.label
                             )
                         },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .animateContentSize(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Row(
@@ -173,7 +179,9 @@ fun InsightsScreen() {
                 Spacer(Modifier.height(20.dp))
             } else {
                 ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {

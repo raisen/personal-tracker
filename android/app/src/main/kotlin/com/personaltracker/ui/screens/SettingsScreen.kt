@@ -1,5 +1,6 @@
 package com.personaltracker.ui.screens
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,9 +12,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.personaltracker.data.*
+import com.personaltracker.ui.components.FadeInColumn
 import com.personaltracker.ui.components.FieldEditorDialog
 import com.personaltracker.ui.components.PromptEditorDialog
 import com.personaltracker.ui.components.ReorderableItemList
+import com.personaltracker.ui.components.ShimmerLoadingList
 import kotlinx.coroutines.launch
 
 @Composable
@@ -118,9 +121,9 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHost) }) { padding ->
         if (isLoading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            ShimmerLoadingList(
+                modifier = Modifier.fillMaxSize().padding(padding)
+            )
             return@Scaffold
         }
 
@@ -140,7 +143,7 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
         val cfg = config ?: return@Scaffold
         val scrollState = rememberScrollState()
 
-        Column(
+        FadeInColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -175,44 +178,50 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
             Text("Fields (${editedFields.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
 
-            ReorderableItemList(
-                items = editedFields,
-                onReorder = { editedFields = it },
-                onDelete = { index, field ->
-                    editedFields = editedFields.toMutableList().also { it.removeAt(index) }
-                    scope.launch {
-                        val result = snackbarHost.showSnackbar(
-                            message = "\"${field.label}\" deleted",
-                            actionLabel = "Undo",
-                            duration = SnackbarDuration.Short
-                        )
-                        if (result == SnackbarResult.ActionPerformed) {
-                            editedFields = editedFields.toMutableList().also {
-                                it.add(index.coerceAtMost(it.size), field)
+            Column(modifier = Modifier.animateContentSize()) {
+                ReorderableItemList(
+                    items = editedFields,
+                    onReorder = { editedFields = it },
+                    onDelete = { index, field ->
+                        editedFields = editedFields.toMutableList().also { it.removeAt(index) }
+                        scope.launch {
+                            val result = snackbarHost.showSnackbar(
+                                message = "\"${field.label}\" deleted",
+                                actionLabel = "Undo",
+                                duration = SnackbarDuration.Short
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                editedFields = editedFields.toMutableList().also {
+                                    it.add(index.coerceAtMost(it.size), field)
+                                }
                             }
                         }
+                    },
+                    onItemClick = { index ->
+                        editingFieldIndex = index
+                        showFieldEditor = true
+                    },
+                    isDragging = isDragging,
+                    itemKey = { it.id }
+                ) { field ->
+                    Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                        Text(
+                            buildString {
+                                if (field.icon.isNotEmpty()) append("${field.icon} ")
+                                append(field.label)
+                            },
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            buildString {
+                                append(field.type.name.lowercase())
+                                if (field.required) append(" \u00b7 required")
+                                if (field.showInList == false) append(" \u00b7 hidden")
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                },
-                onItemClick = { index ->
-                    editingFieldIndex = index
-                    showFieldEditor = true
-                },
-                isDragging = isDragging,
-                itemKey = { it.id }
-            ) { field ->
-                Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
-                    Text(
-                        buildString {
-                            if (field.icon.isNotEmpty()) append("${field.icon} ")
-                            append(field.label)
-                        },
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        "${field.type.name.lowercase()}${if (field.required) " · required" else ""}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
 
@@ -229,45 +238,47 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
             Text("Insight Prompts (${editedPrompts.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
 
-            if (editedPrompts.isEmpty()) {
-                Text(
-                    "No prompts yet.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                ReorderableItemList(
-                    items = editedPrompts,
-                    onReorder = { editedPrompts = it },
-                    onDelete = { index, prompt ->
-                        editedPrompts = editedPrompts.toMutableList().also { it.removeAt(index) }
-                        scope.launch {
-                            val result = snackbarHost.showSnackbar(
-                                message = "\"${prompt.label}\" deleted",
-                                actionLabel = "Undo",
-                                duration = SnackbarDuration.Short
-                            )
-                            if (result == SnackbarResult.ActionPerformed) {
-                                editedPrompts = editedPrompts.toMutableList().also {
-                                    it.add(index.coerceAtMost(it.size), prompt)
+            Column(modifier = Modifier.animateContentSize()) {
+                if (editedPrompts.isEmpty()) {
+                    Text(
+                        "No prompts yet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    ReorderableItemList(
+                        items = editedPrompts,
+                        onReorder = { editedPrompts = it },
+                        onDelete = { index, prompt ->
+                            editedPrompts = editedPrompts.toMutableList().also { it.removeAt(index) }
+                            scope.launch {
+                                val result = snackbarHost.showSnackbar(
+                                    message = "\"${prompt.label}\" deleted",
+                                    actionLabel = "Undo",
+                                    duration = SnackbarDuration.Short
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    editedPrompts = editedPrompts.toMutableList().also {
+                                        it.add(index.coerceAtMost(it.size), prompt)
+                                    }
                                 }
                             }
+                        },
+                        onItemClick = { index ->
+                            editingPromptIndex = index
+                            showPromptEditor = true
+                        },
+                        isDragging = isDragging,
+                        itemKey = { it.label + it.prompt.hashCode() }
+                    ) { prompt ->
+                        Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                            Text(prompt.label, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                prompt.prompt.take(80) + if (prompt.prompt.length > 80) "..." else "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                    },
-                    onItemClick = { index ->
-                        editingPromptIndex = index
-                        showPromptEditor = true
-                    },
-                    isDragging = isDragging,
-                    itemKey = { it.label + it.prompt.hashCode() }
-                ) { prompt ->
-                    Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
-                        Text(prompt.label, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            prompt.prompt.take(80) + if (prompt.prompt.length > 80) "..." else "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
             }

@@ -1,5 +1,7 @@
 package com.personaltracker
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
@@ -67,7 +69,31 @@ fun PersonalTrackerApp() {
         NavHost(
             navController = navController,
             startDestination = Screen.Entries.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            enterTransition = {
+                fadeIn(animationSpec = tween(300)) + slideInHorizontally(
+                    initialOffsetX = { it / 4 },
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                fadeOut(animationSpec = tween(250)) + slideOutHorizontally(
+                    targetOffsetX = { -it / 4 },
+                    animationSpec = tween(250)
+                )
+            },
+            popEnterTransition = {
+                fadeIn(animationSpec = tween(300)) + slideInHorizontally(
+                    initialOffsetX = { -it / 4 },
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                fadeOut(animationSpec = tween(250)) + slideOutHorizontally(
+                    targetOffsetX = { it / 4 },
+                    animationSpec = tween(250)
+                )
+            }
         ) {
             composable(Screen.Entries.route) {
                 EntriesScreen()
