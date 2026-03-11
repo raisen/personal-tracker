@@ -241,8 +241,8 @@ function renderFieldList(container: HTMLElement, config: TrackerConfig): void {
       <div class="field-list-item-content">
         <span class="drag-handle">⠿</span>
         <div class="field-info">
-          <div class="field-name">${field.icon ? field.icon + ' ' : ''}${escHtml(field.label)}</div>
-          <div class="field-meta">${field.type}${field.required ? ' · required' : ''}</div>
+          <span class="field-name">${field.required ? '<span class="field-required-dot"></span>' : ''}${field.icon ? field.icon + ' ' : ''}${escHtml(field.label)}</span>
+          <span class="field-meta">${field.type}</span>
         </div>
       </div>
     `;
