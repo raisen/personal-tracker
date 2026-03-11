@@ -1,32 +1,22 @@
 package com.personaltracker.ui.screens
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.personaltracker.data.*
 import com.personaltracker.ui.components.FieldEditorDialog
 import com.personaltracker.ui.components.PromptEditorDialog
+import com.personaltracker.ui.components.ReorderableItemList
 import kotlinx.coroutines.launch
-import java.util.Collections
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onDisconnect: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val snackbarHost = remember { SnackbarHostState() }
     var config by remember { mutableStateOf<TrackerConfig?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -44,6 +34,9 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
     var editingFieldIndex by remember { mutableStateOf<Int?>(null) }
     var showPromptEditor by remember { mutableStateOf(false) }
     var editingPromptIndex by remember { mutableStateOf<Int?>(null) }
+
+    // Drag state - disables scroll during active drag
+    val isDragging = remember { mutableStateOf(false) }
 
     fun loadData() {
         scope.launch {
@@ -143,12 +136,16 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
         }
 
         val cfg = config ?: return@Scaffold
+        val scrollState = rememberScrollState()
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
+                .then(
+                    if (!isDragging.value) Modifier.verticalScroll(scrollState)
+                    else Modifier
+                )
                 .padding(16.dp)
         ) {
             Text("Settings", style = MaterialTheme.typography.headlineSmall)
@@ -170,117 +167,45 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
             // Fields list
             Text("Fields (${editedFields.size})", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
-            editedFields.forEachIndexed { index, field ->
-                key(field.label + index) {
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value == SwipeToDismissBoxValue.StartToEnd) {
-                                val deletedField = field
-                                val deletedIndex = index
-                                editedFields = editedFields.toMutableList().also { it.removeAt(index) }
-                                scope.launch {
-                                    val result = snackbarHost.showSnackbar(
-                                        message = "\"${deletedField.label}\" deleted",
-                                        actionLabel = "Undo",
-                                        duration = SnackbarDuration.Short
-                                    )
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        editedFields = editedFields.toMutableList().also {
-                                            it.add(deletedIndex.coerceAtMost(it.size), deletedField)
-                                        }
-                                    }
-                                }
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    )
 
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        backgroundContent = {
-                            val color by animateColorAsState(
-                                when (dismissState.targetValue) {
-                                    SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.error
-                                    else -> MaterialTheme.colorScheme.surfaceVariant
-                                },
-                                label = "bg"
-                            )
-                            Box(
-                                Modifier
-                                    .fillMaxSize()
-                                    .background(color, shape = MaterialTheme.shapes.small)
-                                    .padding(horizontal = 20.dp),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Delete",
-                                    tint = MaterialTheme.colorScheme.onError
-                                )
-                            }
-                        },
-                        enableDismissFromEndToStart = false,
-                        enableDismissFromStartToEnd = true
-                    ) {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    editingFieldIndex = index
-                                    showFieldEditor = true
-                                }
-                        ) {
-                            Row(
-                                Modifier.padding(start = 4.dp, end = 12.dp).fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Move up/down
-                                Column {
-                                    IconButton(
-                                        onClick = {
-                                            editedFields = editedFields.toMutableList().also {
-                                                Collections.swap(it, index, index - 1)
-                                            }
-                                        },
-                                        enabled = index > 0,
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(Icons.Default.KeyboardArrowUp, "Move up", modifier = Modifier.size(18.dp))
-                                    }
-                                    IconButton(
-                                        onClick = {
-                                            editedFields = editedFields.toMutableList().also {
-                                                Collections.swap(it, index, index + 1)
-                                            }
-                                        },
-                                        enabled = index < editedFields.size - 1,
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(Icons.Default.KeyboardArrowDown, "Move down", modifier = Modifier.size(18.dp))
-                                    }
-                                }
-
-                                // Field info
-                                Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
-                                    Text(
-                                        buildString {
-                                            if (field.icon.isNotEmpty()) append("${field.icon} ")
-                                            append(field.label)
-                                        },
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    Text(
-                                        "${field.type.name.lowercase()}${if (field.required) " \u00b7 required" else ""}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+            ReorderableItemList(
+                items = editedFields,
+                onReorder = { editedFields = it },
+                onDelete = { index, field ->
+                    editedFields = editedFields.toMutableList().also { it.removeAt(index) }
+                    scope.launch {
+                        val result = snackbarHost.showSnackbar(
+                            message = "\"${field.label}\" deleted",
+                            actionLabel = "Undo",
+                            duration = SnackbarDuration.Short
+                        )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            editedFields = editedFields.toMutableList().also {
+                                it.add(index.coerceAtMost(it.size), field)
                             }
                         }
                     }
-                    Spacer(Modifier.height(4.dp))
+                },
+                onItemClick = { index ->
+                    editingFieldIndex = index
+                    showFieldEditor = true
+                },
+                isDragging = isDragging,
+                itemKey = { it.id }
+            ) { field ->
+                Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                    Text(
+                        buildString {
+                            if (field.icon.isNotEmpty()) append("${field.icon} ")
+                            append(field.label)
+                        },
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "${field.type.name.lowercase()}${if (field.required) " · required" else ""}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -295,6 +220,7 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
             // Prompts list
             Text("Insight Prompts (${editedPrompts.size})", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
+
             if (editedPrompts.isEmpty()) {
                 Text(
                     "No prompts yet.",
@@ -302,84 +228,38 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-                editedPrompts.forEachIndexed { index, prompt ->
-                    key(prompt.label + index) {
-                        val dismissState = rememberSwipeToDismissBoxState(
-                            confirmValueChange = { value ->
-                                if (value == SwipeToDismissBoxValue.StartToEnd) {
-                                    val deletedPrompt = prompt
-                                    val deletedIndex = index
-                                    editedPrompts = editedPrompts.toMutableList().also { it.removeAt(index) }
-                                    scope.launch {
-                                        val result = snackbarHost.showSnackbar(
-                                            message = "\"${deletedPrompt.label}\" deleted",
-                                            actionLabel = "Undo",
-                                            duration = SnackbarDuration.Short
-                                        )
-                                        if (result == SnackbarResult.ActionPerformed) {
-                                            editedPrompts = editedPrompts.toMutableList().also {
-                                                it.add(deletedIndex.coerceAtMost(it.size), deletedPrompt)
-                                            }
-                                        }
-                                    }
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        )
-
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            backgroundContent = {
-                                val color by animateColorAsState(
-                                    when (dismissState.targetValue) {
-                                        SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.error
-                                        else -> MaterialTheme.colorScheme.surfaceVariant
-                                    },
-                                    label = "bg"
-                                )
-                                Box(
-                                    Modifier
-                                        .fillMaxSize()
-                                        .background(color, shape = MaterialTheme.shapes.small)
-                                        .padding(horizontal = 20.dp),
-                                    contentAlignment = Alignment.CenterStart
-                                ) {
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = "Delete",
-                                        tint = MaterialTheme.colorScheme.onError
-                                    )
-                                }
-                            },
-                            enableDismissFromEndToStart = false,
-                            enableDismissFromStartToEnd = true
-                        ) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        editingPromptIndex = index
-                                        showPromptEditor = true
-                                    }
-                            ) {
-                                Row(
-                                    Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(prompt.label, style = MaterialTheme.typography.bodyMedium)
-                                        Text(
-                                            prompt.prompt.take(80) + if (prompt.prompt.length > 80) "..." else "",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                ReorderableItemList(
+                    items = editedPrompts,
+                    onReorder = { editedPrompts = it },
+                    onDelete = { index, prompt ->
+                        editedPrompts = editedPrompts.toMutableList().also { it.removeAt(index) }
+                        scope.launch {
+                            val result = snackbarHost.showSnackbar(
+                                message = "\"${prompt.label}\" deleted",
+                                actionLabel = "Undo",
+                                duration = SnackbarDuration.Short
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                editedPrompts = editedPrompts.toMutableList().also {
+                                    it.add(index.coerceAtMost(it.size), prompt)
                                 }
                             }
                         }
-                        Spacer(Modifier.height(4.dp))
+                    },
+                    onItemClick = { index ->
+                        editingPromptIndex = index
+                        showPromptEditor = true
+                    },
+                    isDragging = isDragging,
+                    itemKey = { it.label + it.prompt.hashCode() }
+                ) { prompt ->
+                    Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                        Text(prompt.label, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            prompt.prompt.take(80) + if (prompt.prompt.length > 80) "..." else "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
