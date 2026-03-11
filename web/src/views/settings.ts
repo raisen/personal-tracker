@@ -28,6 +28,88 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
   }
 }
 
+function enableSwipeToDelete(
+  item: HTMLElement,
+  onDelete: () => void,
+): void {
+  let startX = 0;
+  let currentX = 0;
+  let isSwiping = false;
+  const THRESHOLD = 100;
+
+  const content = item.querySelector('.field-list-item-content') as HTMLElement;
+  if (!content) return;
+
+  // Touch events for mobile
+  content.addEventListener('touchstart', (e) => {
+    if ((e.target as HTMLElement).closest('.drag-handle')) return;
+    startX = e.touches[0]!.clientX;
+    currentX = 0;
+    isSwiping = true;
+    content.style.transition = 'none';
+  });
+
+  content.addEventListener('touchmove', (e) => {
+    if (!isSwiping) return;
+    currentX = e.touches[0]!.clientX - startX;
+    if (currentX < 0) currentX = 0;
+    if (currentX > 10) e.preventDefault();
+    content.style.transform = `translateX(${currentX}px)`;
+    const bg = item.querySelector('.swipe-delete-bg') as HTMLElement;
+    if (bg) bg.style.opacity = currentX > THRESHOLD ? '1' : String(Math.min(0.6, currentX / THRESHOLD));
+  }, { passive: false });
+
+  content.addEventListener('touchend', () => {
+    if (!isSwiping) return;
+    isSwiping = false;
+    if (currentX >= THRESHOLD) {
+      content.style.transition = 'transform 0.2s ease-out, opacity 0.2s';
+      content.style.transform = 'translateX(100%)';
+      content.style.opacity = '0';
+      content.addEventListener('transitionend', () => onDelete(), { once: true });
+    } else {
+      content.style.transition = 'transform 0.2s ease-out';
+      content.style.transform = 'translateX(0)';
+    }
+  });
+
+  // Mouse events for desktop
+  content.addEventListener('mousedown', (e) => {
+    if ((e.target as HTMLElement).closest('.drag-handle')) return;
+    startX = e.clientX;
+    currentX = 0;
+    isSwiping = true;
+    content.style.transition = 'none';
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isSwiping) return;
+      currentX = e.clientX - startX;
+      if (currentX < 0) currentX = 0;
+      content.style.transform = `translateX(${currentX}px)`;
+      const bg = item.querySelector('.swipe-delete-bg') as HTMLElement;
+      if (bg) bg.style.opacity = currentX > THRESHOLD ? '1' : String(Math.min(0.6, currentX / THRESHOLD));
+    };
+
+    const onMouseUp = () => {
+      isSwiping = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      if (currentX >= THRESHOLD) {
+        content.style.transition = 'transform 0.2s ease-out, opacity 0.2s';
+        content.style.transform = 'translateX(100%)';
+        content.style.opacity = '0';
+        content.addEventListener('transitionend', () => onDelete(), { once: true });
+      } else {
+        content.style.transition = 'transform 0.2s ease-out';
+        content.style.transform = 'translateX(0)';
+      }
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
+}
+
 function renderSettingsView(container: HTMLElement): void {
   if (!currentConfig) return;
   const config = currentConfig;
@@ -152,38 +234,49 @@ function renderFieldList(container: HTMLElement, config: TrackerConfig): void {
   config.fields.forEach((field, index) => {
     const item = document.createElement('div');
     item.className = 'field-list-item';
-    item.draggable = true;
     item.dataset['index'] = String(index);
 
     item.innerHTML = `
-      <span class="drag-handle">⠿</span>
-      <div class="field-info">
-        <div class="field-name">${field.icon ? field.icon + ' ' : ''}${escHtml(field.label)}</div>
-        <div class="field-meta">${field.type}${field.required ? ' · required' : ''}</div>
-      </div>
-      <div class="card-actions">
-        <button class="btn btn-secondary btn-sm edit-field-btn">Edit</button>
-        <button class="btn btn-danger btn-sm delete-field-btn">Del</button>
+      <div class="swipe-delete-bg"><span>Delete</span></div>
+      <div class="field-list-item-content">
+        <span class="drag-handle">⠿</span>
+        <div class="field-info">
+          <div class="field-name">${field.icon ? field.icon + ' ' : ''}${escHtml(field.label)}</div>
+          <div class="field-meta">${field.type}${field.required ? ' · required' : ''}</div>
+        </div>
       </div>
     `;
 
-    // Edit
-    item.querySelector('.edit-field-btn')!.addEventListener('click', () => {
+    // Tap field-info to edit
+    item.querySelector('.field-info')!.addEventListener('click', () => {
       openFieldEditor(field, (updated) => {
         config.fields[index] = updated;
         renderFieldList(container, config);
       });
     });
 
-    // Delete
-    item.querySelector('.delete-field-btn')!.addEventListener('click', () => {
-      if (confirm(`Delete field "${field.label}"?`)) {
-        config.fields.splice(index, 1);
-        renderFieldList(container, config);
-      }
+    // Swipe to delete
+    enableSwipeToDelete(item, () => {
+      const deletedField = config.fields[index]!;
+      const deletedIndex = index;
+      config.fields.splice(index, 1);
+      renderFieldList(container, config);
+      showToast(`"${deletedField.label}" deleted`, 'info', {
+        label: 'Undo',
+        callback: () => {
+          config.fields.splice(deletedIndex, 0, deletedField);
+          renderFieldList(container, config);
+        },
+      });
     });
 
-    // Drag and drop reorder
+    // Drag and drop reorder (only from drag handle)
+    const dragHandle = item.querySelector('.drag-handle') as HTMLElement;
+
+    dragHandle.addEventListener('mousedown', () => {
+      item.draggable = true;
+    });
+
     item.addEventListener('dragstart', (e) => {
       item.classList.add('dragging');
       e.dataTransfer!.effectAllowed = 'move';
@@ -192,6 +285,7 @@ function renderFieldList(container: HTMLElement, config: TrackerConfig): void {
 
     item.addEventListener('dragend', () => {
       item.classList.remove('dragging');
+      item.draggable = false;
     });
 
     item.addEventListener('dragover', (e) => {
@@ -232,28 +326,36 @@ function renderPromptList(container: HTMLElement, config: TrackerConfig): void {
     item.className = 'field-list-item';
 
     item.innerHTML = `
-      <div class="field-info">
-        <div class="field-name">${escHtml(prompt.label)}</div>
-        <div class="field-meta">${escHtml(prompt.prompt.slice(0, 80))}${prompt.prompt.length > 80 ? '...' : ''}</div>
-      </div>
-      <div class="card-actions">
-        <button class="btn btn-secondary btn-sm edit-prompt-btn">Edit</button>
-        <button class="btn btn-danger btn-sm delete-prompt-btn">Del</button>
+      <div class="swipe-delete-bg"><span>Delete</span></div>
+      <div class="field-list-item-content">
+        <div class="field-info">
+          <div class="field-name">${escHtml(prompt.label)}</div>
+          <div class="field-meta">${escHtml(prompt.prompt.slice(0, 80))}${prompt.prompt.length > 80 ? '...' : ''}</div>
+        </div>
       </div>
     `;
 
-    item.querySelector('.edit-prompt-btn')!.addEventListener('click', () => {
+    // Tap to edit
+    item.querySelector('.field-info')!.addEventListener('click', () => {
       openPromptEditor(prompt, (updated) => {
         config.prompts![index] = updated;
         renderPromptList(container, config);
       });
     });
 
-    item.querySelector('.delete-prompt-btn')!.addEventListener('click', () => {
-      if (confirm(`Delete prompt "${prompt.label}"?`)) {
-        config.prompts!.splice(index, 1);
-        renderPromptList(container, config);
-      }
+    // Swipe to delete
+    enableSwipeToDelete(item, () => {
+      const deletedPrompt = config.prompts![index]!;
+      const deletedIndex = index;
+      config.prompts!.splice(index, 1);
+      renderPromptList(container, config);
+      showToast(`"${deletedPrompt.label}" deleted`, 'info', {
+        label: 'Undo',
+        callback: () => {
+          config.prompts!.splice(deletedIndex, 0, deletedPrompt);
+          renderPromptList(container, config);
+        },
+      });
     });
 
     list.appendChild(item);
