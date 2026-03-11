@@ -308,634 +308,660 @@ fun EntriesScreen() {
 
         val cfg = config ?: return@Scaffold
 
-        if (editingId != null) {
-            // Edit/New Entry Form
-            FadeInColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = { goBackToList() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        if (editEntry != null) "Edit Entry" else "New Entry",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
+        // Horizontal slide transition between list and edit views
+        AnimatedContent(
+            targetState = editingId,
+            modifier = Modifier.fillMaxSize().padding(padding),
+            transitionSpec = {
+                if (targetState != null) {
+                    // Going to edit: slide in from right
+                    (slideInHorizontally(tween(300)) { it } + fadeIn(tween(300))) togetherWith
+                            (slideOutHorizontally(tween(300)) { -it / 3 } + fadeOut(tween(250)))
+                } else {
+                    // Going back to list: slide in from left
+                    (slideInHorizontally(tween(300)) { -it / 3 } + fadeIn(tween(300))) togetherWith
+                            (slideOutHorizontally(tween(300)) { it } + fadeOut(tween(250)))
                 }
-
-                Spacer(Modifier.height(16.dp))
-
-                for (field in cfg.fields) {
-                    com.personaltracker.ui.components.FieldRenderer(
-                        field = field,
-                        value = fieldValues[field.id],
-                        onValueChange = { newVal ->
-                            fieldValues = fieldValues.toMutableMap().apply { put(field.id, newVal) }
-                        }
-                    )
-                    Spacer(Modifier.height(8.dp))
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                val isEdit = editEntry != null
-                Button(
-                    shape = RoundedCornerShape(12.dp),
-                    onClick = {
-                        for (field in cfg.fields) {
-                            if (field.required) {
-                                val v = fieldValues[field.id]
-                                if (v == null || v == "") {
-                                    scope.launch { snackbarHost.showSnackbar("${field.label} is required") }
-                                    return@Button
-                                }
-                            }
-                        }
-
-                        scope.launch {
-                            isSaving = true
-                            try {
-                                val token = AuthManager.getToken()!!
-                                val gistId = AuthManager.getGistId()!!
-                                val (_, latestData) = GistApi.loadGist(token, gistId)
-                                val entries = latestData.entries.toMutableList()
-
-                                val now = Instant.now().toString()
-                                val entry = Entry(
-                                    _id = editEntry?._id ?: now,
-                                    _created = editEntry?._created ?: now,
-                                    _updated = now,
-                                    fields = fieldValues.toMutableMap()
-                                )
-
-                                if (isEdit) {
-                                    val idx = entries.indexOfFirst { it._id == editEntry?._id }
-                                    if (idx >= 0) entries[idx] = entry else entries.add(entry)
-                                } else {
-                                    entries.add(entry)
-                                }
-
-                                GistApi.saveData(token, gistId, TrackerData(entries))
-                                allEntries = entries.sortedByDescending { it._created }
-                                snackbarHost.showSnackbar(if (isEdit) "Entry updated!" else "Entry saved!")
-                                goBackToList()
-                            } catch (e: Exception) {
-                                snackbarHost.showSnackbar("Failed to save: ${e.message}")
-                            } finally {
-                                isSaving = false
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isSaving
-                ) {
-                    if (isSaving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(Modifier.width(8.dp))
-                    }
-                    Text(
-                        when {
-                            isSaving -> "Saving..."
-                            isEdit -> "Update Entry"
-                            else -> "Save Entry"
-                        }
-                    )
-                }
-            }
-        } else {
-            // Entries List
-            FadeInColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
-                // Header row
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            "Entries",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            AnimatedCounter(
-                                targetValue = filteredEntries.size,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Normal,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                if (filteredEntries.size != allEntries.size) " of ${allEntries.size}" else " total",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        // Filter button with badge
-                        BadgedBox(
-                            badge = {
-                                if (activeFilterCount > 0) {
-                                    Badge { Text("$activeFilterCount") }
-                                }
-                            }
-                        ) {
-                            IconButton(onClick = { showFilters = !showFilters }) {
-                                Icon(
-                                    Icons.Default.FilterList,
-                                    contentDescription = "Filters",
-                                    tint = if (showFilters || activeFilterCount > 0)
-                                        MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        // Layout toggle
-                        IconButton(onClick = {
-                            isCompactLayout = !isCompactLayout
-                            prefs.edit().putBoolean(PREF_LAYOUT_COMPACT, isCompactLayout).apply()
-                        }) {
-                            Crossfade(targetState = isCompactLayout, label = "layoutIcon") { compact ->
-                                Icon(
-                                    if (compact) Icons.Default.ViewList else Icons.Default.ViewModule,
-                                    contentDescription = "Toggle layout"
-                                )
-                            }
-                        }
-                        FilledTonalButton(
-                            onClick = { openEditForm(null, cfg) },
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("+ New")
-                        }
-                    }
-                }
-
-                // Stats strip
-                if (allEntries.isNotEmpty()) {
-                    val today = LocalDate.now()
-                    val entryDates = remember(allEntries) {
-                        allEntries.mapNotNull { entry -> getEntryDate(entry, cfg) }
-                            .distinct()
-                            .sortedDescending()
-                    }
-
-                    val streak = remember(entryDates) {
-                        var s = 0
-                        var checkDate = today
-                        for (date in entryDates) {
-                            if (date == checkDate) {
-                                s++
-                                checkDate = checkDate.minusDays(1)
-                            } else if (date.isBefore(checkDate)) {
-                                if (s == 0 && date == today.minusDays(1)) {
-                                    s = 1
-                                    checkDate = today.minusDays(2)
-                                } else break
-                            }
-                        }
-                        s
-                    }
-
-                    val last7Days = remember(entryDates) {
-                        entryDates.count { !it.isBefore(today.minusDays(6)) }
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .padding(bottom = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Surface(
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                AnimatedCounter(
-                                    targetValue = streak,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Text(
-                                    text = "day streak",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                        Surface(
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                AnimatedFractionCounter(
-                                    numerator = last7Days,
-                                    denominator = 7,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Text(
-                                    text = "last 7 days",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Date range filter chips
-                Row(
+            },
+            label = "listEditTransition"
+        ) { currentEditingId ->
+            if (currentEditingId != null) {
+                // Edit/New Entry Form
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    DateRange.entries.forEach { range ->
-                        FilterChip(
-                            selected = selectedDateRange == range,
-                            onClick = { selectedDateRange = range },
-                            label = { Text(range.label) },
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                    }
-                }
-
-                // Custom date range inputs
-                AnimatedSection(visible = selectedDateRange == DateRange.CUSTOM) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedTextField(
-                            value = customStartDate,
-                            onValueChange = { customStartDate = it },
-                            label = { Text("From") },
-                            placeholder = { Text("YYYY-MM-DD") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp)
+                        IconButton(onClick = { goBackToList() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            if (editEntry != null) "Edit Entry" else "New Entry",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold
                         )
-                        OutlinedTextField(
-                            value = customEndDate,
-                            onValueChange = { customEndDate = it },
-                            label = { Text("To") },
-                            placeholder = { Text("YYYY-MM-DD") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp)
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    for (field in cfg.fields) {
+                        com.personaltracker.ui.components.FieldRenderer(
+                            field = field,
+                            value = fieldValues[field.id],
+                            onValueChange = { newVal ->
+                                fieldValues = fieldValues.toMutableMap().apply { put(field.id, newVal) }
+                            }
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    val isEdit = editEntry != null
+                    Button(
+                        shape = RoundedCornerShape(12.dp),
+                        onClick = {
+                            for (field in cfg.fields) {
+                                if (field.required) {
+                                    val v = fieldValues[field.id]
+                                    if (v == null || v == "") {
+                                        scope.launch { snackbarHost.showSnackbar("${field.label} is required") }
+                                        return@Button
+                                    }
+                                }
+                            }
+
+                            scope.launch {
+                                isSaving = true
+                                try {
+                                    val token = AuthManager.getToken()!!
+                                    val gistId = AuthManager.getGistId()!!
+                                    val (_, latestData) = GistApi.loadGist(token, gistId)
+                                    val entries = latestData.entries.toMutableList()
+
+                                    val now = Instant.now().toString()
+                                    val entry = Entry(
+                                        _id = editEntry?._id ?: now,
+                                        _created = editEntry?._created ?: now,
+                                        _updated = now,
+                                        fields = fieldValues.toMutableMap()
+                                    )
+
+                                    if (isEdit) {
+                                        val idx = entries.indexOfFirst { it._id == editEntry?._id }
+                                        if (idx >= 0) entries[idx] = entry else entries.add(entry)
+                                    } else {
+                                        entries.add(entry)
+                                    }
+
+                                    GistApi.saveData(token, gistId, TrackerData(entries))
+                                    allEntries = entries.sortedByDescending { it._created }
+                                    snackbarHost.showSnackbar(if (isEdit) "Entry updated!" else "Entry saved!")
+                                    goBackToList()
+                                } catch (e: Exception) {
+                                    snackbarHost.showSnackbar("Failed to save: ${e.message}")
+                                } finally {
+                                    isSaving = false
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isSaving
+                    ) {
+                        if (isSaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        Text(
+                            when {
+                                isSaving -> "Saving..."
+                                isEdit -> "Update Entry"
+                                else -> "Save Entry"
+                            }
                         )
                     }
                 }
+            } else {
+                // Entries List — single LazyColumn for everything (scrollable)
+                val summaryFields = cfg.fields.filter { it.showInList != false }
 
-                // Field filters panel
-                AnimatedSection(visible = showFilters) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 8.dp)
+                ) {
+                    // Header row
+                    item(key = "header") {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                "Filters",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            if (activeFilterCount > 0) {
-                                TextButton(onClick = { fieldFilters = emptyMap() }) {
-                                    Text("Clear all")
-                                }
-                            }
-                        }
-
-                        val filterableFields = cfg.fields.filter {
-                            it.showInList != false && it.type != FieldType.DATE && it.type != FieldType.TIME
-                        }
-
-                        filterableFields.forEach { field ->
-                            when (field.type) {
-                                FieldType.TEXT -> {
-                                    val current = (fieldFilters[field.id] as? String) ?: ""
-                                    OutlinedTextField(
-                                        value = current,
-                                        onValueChange = { value ->
-                                            fieldFilters = fieldFilters.toMutableMap().apply {
-                                                if (value.isBlank()) remove(field.id) else put(field.id, value)
-                                            }
-                                        },
-                                        label = {
-                                            Text(buildString {
-                                                if (field.icon.isNotEmpty()) append("${field.icon} ")
-                                                append(field.label)
-                                            })
-                                        },
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                }
-                                FieldType.RANGE, FieldType.NUMBER -> {
-                                    @Suppress("UNCHECKED_CAST")
-                                    val range = (fieldFilters[field.id] as? Pair<Double?, Double?>) ?: Pair(null, null)
-                                    Text(
-                                        buildString {
-                                            if (field.icon.isNotEmpty()) append("${field.icon} ")
-                                            append(field.label)
-                                        },
-                                        style = MaterialTheme.typography.bodySmall,
+                            Column {
+                                Text(
+                                    "Entries",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    AnimatedCounter(
+                                        targetValue = filteredEntries.size,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Normal,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        OutlinedTextField(
-                                            value = range.first?.let {
-                                                if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
-                                            } ?: "",
-                                            onValueChange = { v ->
-                                                val newMin = v.toDoubleOrNull()
-                                                val newRange = Pair(newMin, range.second)
-                                                fieldFilters = fieldFilters.toMutableMap().apply {
-                                                    if (newRange.first == null && newRange.second == null) remove(field.id)
-                                                    else put(field.id, newRange)
-                                                }
-                                            },
-                                            placeholder = { Text("Min") },
-                                            singleLine = true,
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                            modifier = Modifier.weight(1f),
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        OutlinedTextField(
-                                            value = range.second?.let {
-                                                if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
-                                            } ?: "",
-                                            onValueChange = { v ->
-                                                val newMax = v.toDoubleOrNull()
-                                                val newRange = Pair(range.first, newMax)
-                                                fieldFilters = fieldFilters.toMutableMap().apply {
-                                                    if (newRange.first == null && newRange.second == null) remove(field.id)
-                                                    else put(field.id, newRange)
-                                                }
-                                            },
-                                            placeholder = { Text("Max") },
-                                            singleLine = true,
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                            modifier = Modifier.weight(1f),
-                                            shape = RoundedCornerShape(8.dp)
+                                    Text(
+                                        if (filteredEntries.size != allEntries.size) " of ${allEntries.size}" else " total",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                BadgedBox(
+                                    badge = {
+                                        if (activeFilterCount > 0) {
+                                            Badge { Text("$activeFilterCount") }
+                                        }
+                                    }
+                                ) {
+                                    IconButton(onClick = { showFilters = !showFilters }) {
+                                        Icon(
+                                            Icons.Default.FilterList,
+                                            contentDescription = "Filters",
+                                            tint = if (showFilters || activeFilterCount > 0)
+                                                MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 }
-                                FieldType.SELECT, FieldType.RADIO -> {
-                                    @Suppress("UNCHECKED_CAST")
-                                    val selected = (fieldFilters[field.id] as? Set<String>) ?: emptySet()
+                                IconButton(onClick = {
+                                    isCompactLayout = !isCompactLayout
+                                    prefs.edit().putBoolean(PREF_LAYOUT_COMPACT, isCompactLayout).apply()
+                                }) {
+                                    Crossfade(targetState = isCompactLayout, label = "layoutIcon") { compact ->
+                                        Icon(
+                                            if (compact) Icons.Default.ViewList else Icons.Default.ViewModule,
+                                            contentDescription = "Toggle layout"
+                                        )
+                                    }
+                                }
+                                FilledTonalButton(
+                                    onClick = { openEditForm(null, cfg) },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("+ New")
+                                }
+                            }
+                        }
+                    }
+
+                    // Stats strip
+                    if (allEntries.isNotEmpty()) {
+                        item(key = "stats") {
+                            val today = LocalDate.now()
+                            val entryDates = remember(allEntries) {
+                                allEntries.mapNotNull { entry -> getEntryDate(entry, cfg) }
+                                    .distinct()
+                                    .sortedDescending()
+                            }
+
+                            val streak = remember(entryDates) {
+                                var s = 0
+                                var checkDate = today
+                                for (date in entryDates) {
+                                    if (date == checkDate) {
+                                        s++
+                                        checkDate = checkDate.minusDays(1)
+                                    } else if (date.isBefore(checkDate)) {
+                                        if (s == 0 && date == today.minusDays(1)) {
+                                            s = 1
+                                            checkDate = today.minusDays(2)
+                                        } else break
+                                    }
+                                }
+                                s
+                            }
+
+                            val last7Days = remember(entryDates) {
+                                entryDates.count { !it.isBefore(today.minusDays(6)) }
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                                    .padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Surface(
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(12.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        AnimatedCounter(
+                                            targetValue = streak,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        Text(
+                                            text = "day streak",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                }
+                                Surface(
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(12.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        AnimatedFractionCounter(
+                                            numerator = last7Days,
+                                            denominator = 7,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                        Text(
+                                            text = "last 7 days",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Date range filter chips
+                    item(key = "dateFilter") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            DateRange.entries.forEach { range ->
+                                FilterChip(
+                                    selected = selectedDateRange == range,
+                                    onClick = { selectedDateRange = range },
+                                    label = { Text(range.label) },
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Custom date range inputs
+                    if (selectedDateRange == DateRange.CUSTOM) {
+                        item(key = "customDate") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = customStartDate,
+                                    onValueChange = { customStartDate = it },
+                                    label = { Text("From") },
+                                    placeholder = { Text("YYYY-MM-DD") },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                OutlinedTextField(
+                                    value = customEndDate,
+                                    onValueChange = { customEndDate = it },
+                                    label = { Text("To") },
+                                    placeholder = { Text("YYYY-MM-DD") },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Field filters panel
+                    if (showFilters) {
+                        item(key = "filters") {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Text(
-                                        buildString {
-                                            if (field.icon.isNotEmpty()) append("${field.icon} ")
-                                            append(field.label)
-                                        },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        "Filters",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold
                                     )
-                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        field.options?.forEach { option ->
-                                            FilterChip(
-                                                selected = selected.contains(option),
-                                                onClick = {
-                                                    val newSet = if (selected.contains(option))
-                                                        selected - option else selected + option
+                                    if (activeFilterCount > 0) {
+                                        TextButton(onClick = { fieldFilters = emptyMap() }) {
+                                            Text("Clear all")
+                                        }
+                                    }
+                                }
+
+                                val filterableFields = cfg.fields.filter {
+                                    it.showInList != false && it.type != FieldType.DATE && it.type != FieldType.TIME
+                                }
+
+                                filterableFields.forEach { field ->
+                                    when (field.type) {
+                                        FieldType.TEXT -> {
+                                            val current = (fieldFilters[field.id] as? String) ?: ""
+                                            OutlinedTextField(
+                                                value = current,
+                                                onValueChange = { value ->
                                                     fieldFilters = fieldFilters.toMutableMap().apply {
-                                                        if (newSet.isEmpty()) remove(field.id) else put(field.id, newSet)
+                                                        if (value.isBlank()) remove(field.id) else put(field.id, value)
                                                     }
                                                 },
-                                                label = { Text(option) },
+                                                label = {
+                                                    Text(buildString {
+                                                        if (field.icon.isNotEmpty()) append("${field.icon} ")
+                                                        append(field.label)
+                                                    })
+                                                },
+                                                singleLine = true,
+                                                modifier = Modifier.fillMaxWidth(),
                                                 shape = RoundedCornerShape(8.dp)
+                                            )
+                                        }
+                                        FieldType.RANGE, FieldType.NUMBER -> {
+                                            @Suppress("UNCHECKED_CAST")
+                                            val range = (fieldFilters[field.id] as? Pair<Double?, Double?>) ?: Pair(null, null)
+                                            Text(
+                                                buildString {
+                                                    if (field.icon.isNotEmpty()) append("${field.icon} ")
+                                                    append(field.label)
+                                                },
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                OutlinedTextField(
+                                                    value = range.first?.let {
+                                                        if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
+                                                    } ?: "",
+                                                    onValueChange = { v ->
+                                                        val newMin = v.toDoubleOrNull()
+                                                        val newRange = Pair(newMin, range.second)
+                                                        fieldFilters = fieldFilters.toMutableMap().apply {
+                                                            if (newRange.first == null && newRange.second == null) remove(field.id)
+                                                            else put(field.id, newRange)
+                                                        }
+                                                    },
+                                                    placeholder = { Text("Min") },
+                                                    singleLine = true,
+                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                                    modifier = Modifier.weight(1f),
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                                OutlinedTextField(
+                                                    value = range.second?.let {
+                                                        if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
+                                                    } ?: "",
+                                                    onValueChange = { v ->
+                                                        val newMax = v.toDoubleOrNull()
+                                                        val newRange = Pair(range.first, newMax)
+                                                        fieldFilters = fieldFilters.toMutableMap().apply {
+                                                            if (newRange.first == null && newRange.second == null) remove(field.id)
+                                                            else put(field.id, newRange)
+                                                        }
+                                                    },
+                                                    placeholder = { Text("Max") },
+                                                    singleLine = true,
+                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                                    modifier = Modifier.weight(1f),
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                            }
+                                        }
+                                        FieldType.SELECT, FieldType.RADIO -> {
+                                            @Suppress("UNCHECKED_CAST")
+                                            val selected = (fieldFilters[field.id] as? Set<String>) ?: emptySet()
+                                            Text(
+                                                buildString {
+                                                    if (field.icon.isNotEmpty()) append("${field.icon} ")
+                                                    append(field.label)
+                                                },
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                field.options?.forEach { option ->
+                                                    FilterChip(
+                                                        selected = selected.contains(option),
+                                                        onClick = {
+                                                            val newSet = if (selected.contains(option))
+                                                                selected - option else selected + option
+                                                            fieldFilters = fieldFilters.toMutableMap().apply {
+                                                                if (newSet.isEmpty()) remove(field.id) else put(field.id, newSet)
+                                                            }
+                                                        },
+                                                        label = { Text(option) },
+                                                        shape = RoundedCornerShape(8.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        FieldType.CHECKBOX -> {
+                                            val filterVal = fieldFilters[field.id] as? Boolean
+                                            Text(
+                                                buildString {
+                                                    if (field.icon.isNotEmpty()) append("${field.icon} ")
+                                                    append(field.label)
+                                                },
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                FilterChip(
+                                                    selected = filterVal == null,
+                                                    onClick = {
+                                                        fieldFilters = fieldFilters.toMutableMap().apply { remove(field.id) }
+                                                    },
+                                                    label = { Text("Any") },
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                                FilterChip(
+                                                    selected = filterVal == true,
+                                                    onClick = {
+                                                        fieldFilters = fieldFilters.toMutableMap().apply { put(field.id, true) }
+                                                    },
+                                                    label = { Text("Yes") },
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                                FilterChip(
+                                                    selected = filterVal == false,
+                                                    onClick = {
+                                                        fieldFilters = fieldFilters.toMutableMap().apply { put(field.id, false) }
+                                                    },
+                                                    label = { Text("No") },
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                            }
+                                        }
+                                        else -> {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Empty state
+                    if (filteredEntries.isEmpty()) {
+                        item(key = "empty") {
+                            Box(
+                                Modifier.fillParentMaxHeight(0.5f).fillMaxWidth().padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    if (allEntries.isEmpty()) "No entries yet. Tap \"+ New\" to add your first one."
+                                    else "No entries match your filters.",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    // Entry cards
+                    items(filteredEntries, key = { it._id }) { entry ->
+                        ElevatedCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .animateItem()
+                                .animateContentSize()
+                                .combinedClickable(
+                                    onClick = { openEditForm(entry, cfg) },
+                                    onLongClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        entryToDelete = entry
+                                    }
+                                ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(Modifier.padding(16.dp)) {
+                                // Date header
+                                val entryDate = getEntryDate(entry, cfg)
+                                val today = LocalDate.now()
+                                val formattedDate = if (entryDate != null) {
+                                    val dayOfWeek = entryDate.dayOfWeek.getDisplayName(JavaTextStyle.FULL, Locale.getDefault())
+                                    val monthDay = entryDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
+                                    "$dayOfWeek, $monthDay"
+                                } else {
+                                    try {
+                                        val instant = Instant.parse(entry._created)
+                                        val zdt = instant.atZone(ZoneId.systemDefault())
+                                        zdt.format(DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy"))
+                                    } catch (_: Exception) {
+                                        entry._created.take(10)
+                                    }
+                                }
+
+                                val relativeDate = if (entryDate != null) {
+                                    val daysAgo = ChronoUnit.DAYS.between(entryDate, today)
+                                    when (daysAgo) {
+                                        0L -> "Today"
+                                        1L -> "Yesterday"
+                                        in 2..6 -> "$daysAgo days ago"
+                                        in 7..13 -> "1 week ago"
+                                        else -> null
+                                    }
+                                } else null
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = formattedDate,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    if (relativeDate != null) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                                        ) {
+                                            Text(
+                                                text = relativeDate,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                             )
                                         }
                                     }
                                 }
-                                FieldType.CHECKBOX -> {
-                                    val filterVal = fieldFilters[field.id] as? Boolean
-                                    Text(
-                                        buildString {
-                                            if (field.icon.isNotEmpty()) append("${field.icon} ")
-                                            append(field.label)
-                                        },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        FilterChip(
-                                            selected = filterVal == null,
-                                            onClick = {
-                                                fieldFilters = fieldFilters.toMutableMap().apply { remove(field.id) }
-                                            },
-                                            label = { Text("Any") },
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        FilterChip(
-                                            selected = filterVal == true,
-                                            onClick = {
-                                                fieldFilters = fieldFilters.toMutableMap().apply { put(field.id, true) }
-                                            },
-                                            label = { Text("Yes") },
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        FilterChip(
-                                            selected = filterVal == false,
-                                            onClick = {
-                                                fieldFilters = fieldFilters.toMutableMap().apply { put(field.id, false) }
-                                            },
-                                            label = { Text("No") },
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                    }
-                                }
-                                else -> {}
-                            }
-                        }
-                    }
-                }
 
-                if (filteredEntries.isEmpty()) {
-                    Box(
-                        Modifier.fillMaxSize().padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            if (allEntries.isEmpty()) "No entries yet. Tap \"+ New\" to add your first one."
-                            else "No entries match your filters.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
-                    val summaryFields = cfg.fields.filter { it.showInList != false }
-                    val dateField = cfg.fields.firstOrNull { it.type == FieldType.DATE }
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                )
 
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(filteredEntries, key = { it._id }) { entry ->
-                            ElevatedCard(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .animateItem()
-                                    .animateContentSize()
-                                    .combinedClickable(
-                                        onClick = { openEditForm(entry, cfg) },
-                                        onLongClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            entryToDelete = entry
-                                        }
-                                    ),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Column(Modifier.padding(16.dp)) {
-                                    // Date header
-                                    val entryDate = getEntryDate(entry, cfg)
-                                    val today = LocalDate.now()
-                                    val formattedDate = if (entryDate != null) {
-                                        val dayOfWeek = entryDate.dayOfWeek.getDisplayName(JavaTextStyle.FULL, Locale.getDefault())
-                                        val monthDay = entryDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
-                                        "$dayOfWeek, $monthDay"
-                                    } else {
-                                        try {
-                                            val instant = Instant.parse(entry._created)
-                                            val zdt = instant.atZone(ZoneId.systemDefault())
-                                            zdt.format(DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy"))
-                                        } catch (_: Exception) {
-                                            entry._created.take(10)
-                                        }
-                                    }
+                                // Fields display — toggle between compact and expanded
+                                val displayFields = summaryFields.filter { it.type != FieldType.DATE }
 
-                                    val relativeDate = if (entryDate != null) {
-                                        val daysAgo = ChronoUnit.DAYS.between(entryDate, today)
-                                        when (daysAgo) {
-                                            0L -> "Today"
-                                            1L -> "Yesterday"
-                                            in 2..6 -> "$daysAgo days ago"
-                                            in 7..13 -> "1 week ago"
-                                            else -> null
-                                        }
-                                    } else null
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = formattedDate,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                        if (relativeDate != null) {
-                                            Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = MaterialTheme.colorScheme.tertiaryContainer,
-                                            ) {
-                                                Text(
-                                                    text = relativeDate,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(vertical = 8.dp),
-                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                    )
-
-                                    // Fields display — toggle between compact and expanded
-                                    val displayFields = summaryFields.filter { it.type != FieldType.DATE }
-
-                                    AnimatedContent(
-                                        targetState = isCompactLayout,
-                                        transitionSpec = {
-                                            fadeIn(tween(200)) togetherWith fadeOut(tween(200))
-                                        },
-                                        label = "layoutSwitch"
-                                    ) { compact ->
-                                        if (compact) {
-                                            // Compact: icon + value only, flowing horizontally
-                                            FlowRow(
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                                            ) {
-                                                displayFields.forEachIndexed { index, field ->
-                                                    val value = entry.fields[field.id] ?: return@forEachIndexed
-                                                    val display = formatFieldValue(field, value)
-                                                    if (index > 0) {
-                                                        Text(
-                                                            " · ",
-                                                            style = MaterialTheme.typography.bodyMedium,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                        )
-                                                    }
+                                AnimatedContent(
+                                    targetState = isCompactLayout,
+                                    transitionSpec = {
+                                        fadeIn(tween(200)) togetherWith fadeOut(tween(200))
+                                    },
+                                    label = "layoutSwitch"
+                                ) { compact ->
+                                    if (compact) {
+                                        FlowRow(
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            displayFields.forEachIndexed { index, field ->
+                                                val value = entry.fields[field.id] ?: return@forEachIndexed
+                                                val display = formatFieldValue(field, value)
+                                                if (index > 0) {
                                                     Text(
-                                                        text = buildString {
-                                                            if (field.icon.isNotEmpty()) append("${field.icon} ")
-                                                            append(display)
-                                                        },
-                                                        style = MaterialTheme.typography.bodyMedium
-                                                    )
-                                                }
-                                            }
-                                        } else {
-                                            // Expanded: icon + label + value vertically
-                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                displayFields.forEach { field ->
-                                                    val value = entry.fields[field.id] ?: return@forEach
-                                                    val display = formatFieldValue(field, value)
-                                                    Text(
-                                                        text = buildString {
-                                                            if (field.icon.isNotEmpty()) append("${field.icon} ")
-                                                            append("${field.label}: $display")
-                                                        },
+                                                        " \u00b7 ",
                                                         style = MaterialTheme.typography.bodyMedium,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                                     )
                                                 }
+                                                Text(
+                                                    text = buildString {
+                                                        if (field.icon.isNotEmpty()) append("${field.icon} ")
+                                                        append(display)
+                                                    },
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            displayFields.forEach { field ->
+                                                val value = entry.fields[field.id] ?: return@forEach
+                                                val display = formatFieldValue(field, value)
+                                                Text(
+                                                    text = buildString {
+                                                        if (field.icon.isNotEmpty()) append("${field.icon} ")
+                                                        append("${field.label}: $display")
+                                                    },
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
                                             }
                                         }
                                     }
                                 }
                             }
                         }
+
+                        Spacer(Modifier.height(8.dp))
                     }
                 }
             }
