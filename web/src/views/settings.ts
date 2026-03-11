@@ -132,7 +132,7 @@ function renderSettingsView(container: HTMLElement): void {
 
     <div class="settings-section">
       <h2>Insight Prompts</h2>
-      <p class="text-secondary text-sm mb-8">Prompts that appear on the Insights tab. Each copies your data + the prompt to clipboard for claude.ai.</p>
+      <p class="text-secondary text-sm mb-8">Prompts that appear on the Insights tab. Each copies your data + the prompt to clipboard for any AI chatbot.</p>
       <div id="prompt-list"></div>
       <button id="add-prompt-btn" class="btn btn-secondary btn-block mt-16">+ Add Prompt</button>
     </div>

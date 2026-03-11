@@ -54,7 +54,7 @@ fun InsightsScreen() {
     fun copyToClipboard(text: String, label: String) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
-        scope.launch { snackbarHost.showSnackbar("$label copied! Paste into claude.ai") }
+        scope.launch { snackbarHost.showSnackbar("$label copied! Paste into any AI chatbot") }
     }
 
     fun formatEntries(entries: List<Entry>, cfg: TrackerConfig): String {
@@ -121,7 +121,7 @@ fun InsightsScreen() {
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "Copy a prompt + your data to the clipboard, then paste it into claude.ai.",
+                "Copy a prompt + your data to the clipboard, then paste it into any AI chatbot.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
