@@ -1,11 +1,13 @@
 package com.personaltracker.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -16,11 +18,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.personaltracker.data.*
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 private const val PREF_EDITING_ENTRY = "pt_editing_entry"
 
@@ -76,6 +81,10 @@ fun EntriesScreen() {
         editingId = null
         editEntry = null
         saveEditState(null)
+    }
+
+    BackHandler(enabled = editingId != null) {
+        goBackToList()
     }
 
     fun loadData() {
@@ -174,7 +183,7 @@ fun EntriesScreen() {
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -183,14 +192,15 @@ fun EntriesScreen() {
                     IconButton(onClick = { goBackToList() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         if (editEntry != null) "Edit Entry" else "New Entry",
-                        style = MaterialTheme.typography.headlineSmall
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(16.dp))
 
                 for (field in cfg.fields) {
                     com.personaltracker.ui.components.FieldRenderer(
@@ -200,13 +210,14 @@ fun EntriesScreen() {
                             fieldValues = fieldValues.toMutableMap().apply { put(field.id, newVal) }
                         }
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(8.dp))
                 }
 
                 Spacer(Modifier.height(16.dp))
 
                 val isEdit = editEntry != null
                 Button(
+                    shape = RoundedCornerShape(12.dp),
                     onClick = {
                         for (field in cfg.fields) {
                             if (field.required) {
@@ -276,24 +287,27 @@ fun EntriesScreen() {
             // Entries List
             Column(Modifier.fillMaxSize().padding(padding)) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "Entries",
-                        style = MaterialTheme.typography.headlineSmall
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column {
                         Text(
-                            "${allEntries.size}",
-                            style = MaterialTheme.typography.bodyMedium,
+                            "Entries",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "${allEntries.size} total",
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(Modifier.width(12.dp))
-                        FilledTonalButton(onClick = { openEditForm(null, cfg) }) {
-                            Text("+ New")
-                        }
+                    }
+                    FilledTonalButton(
+                        onClick = { openEditForm(null, cfg) },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("+ New")
                     }
                 }
 
@@ -309,44 +323,86 @@ fun EntriesScreen() {
                         )
                     }
                 } else {
-                    val summaryFields = cfg.fields.take(4)
+                    val summaryFields = cfg.fields.take(3)
 
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(allEntries, key = { it._id }) { entry ->
-                            Card(
+                            ElevatedCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
                                     .combinedClickable(
                                         onClick = { openEditForm(entry, cfg) },
                                         onLongClick = {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             entryToDelete = entry
                                         }
-                                    )
+                                    ),
+                                shape = RoundedCornerShape(16.dp)
                             ) {
-                                Column(Modifier.padding(12.dp)) {
-                                    summaryFields.forEach { field ->
-                                        val value = entry.fields[field.id]
-                                        if (value != null) {
+                                Column(Modifier.padding(16.dp)) {
+                                    // Primary field - displayed prominently
+                                    val primaryField = summaryFields.firstOrNull()
+                                    if (primaryField != null) {
+                                        val primaryValue = entry.fields[primaryField.id]
+                                        if (primaryValue != null) {
                                             val display = when {
-                                                field.type == FieldType.CHECKBOX -> if (value == true) "\u2713" else "\u2717"
-                                                else -> value.toString()
+                                                primaryField.type == FieldType.CHECKBOX -> if (primaryValue == true) "\u2713" else "\u2717"
+                                                else -> primaryValue.toString()
                                             }
-                                            Row(Modifier.padding(vertical = 1.dp)) {
-                                                if (field.icon.isNotEmpty()) {
-                                                    Text("${field.icon} ", style = MaterialTheme.typography.bodySmall)
+                                            Text(
+                                                text = buildString {
+                                                    if (primaryField.icon.isNotEmpty()) append("${primaryField.icon} ")
+                                                    append("${primaryField.label}: $display")
+                                                },
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+
+                                    // Secondary fields
+                                    val secondaryFields = summaryFields.drop(1)
+                                    if (secondaryFields.isNotEmpty()) {
+                                        Spacer(Modifier.height(6.dp))
+                                        secondaryFields.forEach { field ->
+                                            val value = entry.fields[field.id]
+                                            if (value != null) {
+                                                val display = when {
+                                                    field.type == FieldType.CHECKBOX -> if (value == true) "\u2713" else "\u2717"
+                                                    else -> value.toString()
                                                 }
                                                 Text(
-                                                    "${field.label}: $display",
-                                                    style = MaterialTheme.typography.bodySmall
+                                                    text = buildString {
+                                                        if (field.icon.isNotEmpty()) append("${field.icon} ")
+                                                        append("${field.label}: $display")
+                                                    },
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.padding(vertical = 1.dp)
                                                 )
                                             }
                                         }
                                     }
+
+                                    // Date - right-aligned, subtle
+                                    Spacer(Modifier.height(8.dp))
+                                    val formattedDate = try {
+                                        val instant = Instant.parse(entry._created)
+                                        val zdt = instant.atZone(ZoneId.systemDefault())
+                                        zdt.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
+                                    } catch (_: Exception) {
+                                        entry._created.take(10)
+                                    }
+                                    Text(
+                                        text = formattedDate,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        modifier = Modifier.align(Alignment.End)
+                                    )
                                 }
                             }
                         }

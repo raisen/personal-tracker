@@ -2,11 +2,13 @@ package com.personaltracker.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -37,7 +39,8 @@ fun SetupScreen(onComplete: () -> Unit) {
 
         Text(
             "\uD83D\uDCCA Personal Tracker",
-            style = MaterialTheme.typography.headlineLarge
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(8.dp))
         Text(
@@ -49,7 +52,7 @@ fun SetupScreen(onComplete: () -> Unit) {
         Spacer(Modifier.height(32.dp))
 
         // Step 1: Token info
-        Card(modifier = Modifier.fillMaxWidth()) {
+        ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
             Column(Modifier.padding(16.dp)) {
                 Text("1. Create a GitHub Token", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
@@ -64,7 +67,7 @@ fun SetupScreen(onComplete: () -> Unit) {
         Spacer(Modifier.height(16.dp))
 
         // Step 2: Token input
-        Card(modifier = Modifier.fillMaxWidth()) {
+        ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
             Column(Modifier.padding(16.dp)) {
                 Text("2. Enter Your Token", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
@@ -137,7 +140,7 @@ fun SetupScreen(onComplete: () -> Unit) {
         // Step 3: Choose tracker
         if (connectedUser != null) {
             Spacer(Modifier.height(16.dp))
-            Card(modifier = Modifier.fillMaxWidth()) {
+            ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                 Column(Modifier.padding(16.dp)) {
                     Text("3. Choose Your Tracker", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(12.dp))
