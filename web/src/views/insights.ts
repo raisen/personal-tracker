@@ -80,8 +80,7 @@ function renderInsightsView(
     <div class="settings-section">
       <h2>AI Insights</h2>
       <p class="text-secondary text-sm mb-16">
-        Copy a prompt + your data to the clipboard, then paste it into
-        <a href="https://claude.ai" target="_blank" rel="noopener">claude.ai</a>.
+        Copy a prompt + your data to the clipboard, then paste it into any AI chatbot.
       </p>
       <p class="text-secondary text-sm mb-16">${entries.length} entries available for analysis.</p>
     </div>
@@ -164,7 +163,7 @@ function escHtml(s: string): string {
 async function copyToClipboard(text: string, label: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
-    showToast(`${label} copied! Paste into claude.ai`, 'success');
+    showToast(`${label} copied! Paste into any AI chatbot`, 'success');
   } catch {
     showToast('Copy failed — try manually selecting the text', 'error');
   }
