@@ -1,11 +1,13 @@
 package com.personaltracker.ui.screens
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
@@ -20,6 +22,7 @@ import com.personaltracker.ui.components.PromptEditorDialog
 import kotlinx.coroutines.launch
 import java.util.Collections
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onDisconnect: () -> Unit) {
     val scope = rememberCoroutineScope()
@@ -41,8 +44,6 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
     var editingFieldIndex by remember { mutableStateOf<Int?>(null) }
     var showPromptEditor by remember { mutableStateOf(false) }
     var editingPromptIndex by remember { mutableStateOf<Int?>(null) }
-    var showDeleteFieldDialog by remember { mutableStateOf<Int?>(null) }
-    var showDeletePromptDialog by remember { mutableStateOf<Int?>(null) }
 
     fun loadData() {
         scope.launch {
@@ -120,42 +121,6 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
         )
     }
 
-    // Delete field confirmation
-    showDeleteFieldDialog?.let { index ->
-        AlertDialog(
-            onDismissRequest = { showDeleteFieldDialog = null },
-            title = { Text("Delete Field") },
-            text = { Text("Delete \"${editedFields[index].label}\"?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    editedFields = editedFields.toMutableList().also { it.removeAt(index) }
-                    showDeleteFieldDialog = null
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteFieldDialog = null }) { Text("Cancel") }
-            }
-        )
-    }
-
-    // Delete prompt confirmation
-    showDeletePromptDialog?.let { index ->
-        AlertDialog(
-            onDismissRequest = { showDeletePromptDialog = null },
-            title = { Text("Delete Prompt") },
-            text = { Text("Delete \"${editedPrompts[index].label}\"?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    editedPrompts = editedPrompts.toMutableList().also { it.removeAt(index) }
-                    showDeletePromptDialog = null
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeletePromptDialog = null }) { Text("Cancel") }
-            }
-        )
-    }
-
     Scaffold(snackbarHost = { SnackbarHost(snackbarHost) }) { padding ->
         if (isLoading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
@@ -206,67 +171,116 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
             Text("Fields (${editedFields.size})", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
             editedFields.forEachIndexed { index, field ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
-                ) {
-                    Row(
-                        Modifier.padding(start = 4.dp, end = 4.dp).fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                key(field.label + index) {
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value == SwipeToDismissBoxValue.StartToEnd) {
+                                val deletedField = field
+                                val deletedIndex = index
+                                editedFields = editedFields.toMutableList().also { it.removeAt(index) }
+                                scope.launch {
+                                    val result = snackbarHost.showSnackbar(
+                                        message = "\"${deletedField.label}\" deleted",
+                                        actionLabel = "Undo",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        editedFields = editedFields.toMutableList().also {
+                                            it.add(deletedIndex.coerceAtMost(it.size), deletedField)
+                                        }
+                                    }
+                                }
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    )
+
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        backgroundContent = {
+                            val color by animateColorAsState(
+                                when (dismissState.targetValue) {
+                                    SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.error
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                },
+                                label = "bg"
+                            )
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(color, shape = MaterialTheme.shapes.small)
+                                    .padding(horizontal = 20.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = MaterialTheme.colorScheme.onError
+                                )
+                            }
+                        },
+                        enableDismissFromEndToStart = false,
+                        enableDismissFromStartToEnd = true
                     ) {
-                        // Move up/down
-                        Column {
-                            IconButton(
-                                onClick = {
-                                    editedFields = editedFields.toMutableList().also {
-                                        Collections.swap(it, index, index - 1)
-                                    }
-                                },
-                                enabled = index > 0,
-                                modifier = Modifier.size(32.dp)
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    editingFieldIndex = index
+                                    showFieldEditor = true
+                                }
+                        ) {
+                            Row(
+                                Modifier.padding(start = 4.dp, end = 12.dp).fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.KeyboardArrowUp, "Move up", modifier = Modifier.size(18.dp))
-                            }
-                            IconButton(
-                                onClick = {
-                                    editedFields = editedFields.toMutableList().also {
-                                        Collections.swap(it, index, index + 1)
+                                // Move up/down
+                                Column {
+                                    IconButton(
+                                        onClick = {
+                                            editedFields = editedFields.toMutableList().also {
+                                                Collections.swap(it, index, index - 1)
+                                            }
+                                        },
+                                        enabled = index > 0,
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(Icons.Default.KeyboardArrowUp, "Move up", modifier = Modifier.size(18.dp))
                                     }
-                                },
-                                enabled = index < editedFields.size - 1,
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(Icons.Default.KeyboardArrowDown, "Move down", modifier = Modifier.size(18.dp))
+                                    IconButton(
+                                        onClick = {
+                                            editedFields = editedFields.toMutableList().also {
+                                                Collections.swap(it, index, index + 1)
+                                            }
+                                        },
+                                        enabled = index < editedFields.size - 1,
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(Icons.Default.KeyboardArrowDown, "Move down", modifier = Modifier.size(18.dp))
+                                    }
+                                }
+
+                                // Field info
+                                Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                                    Text(
+                                        buildString {
+                                            if (field.icon.isNotEmpty()) append("${field.icon} ")
+                                            append(field.label)
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        "${field.type.name.lowercase()}${if (field.required) " \u00b7 required" else ""}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
-                        }
-
-                        // Field info
-                        Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
-                            Text(
-                                buildString {
-                                    if (field.icon.isNotEmpty()) append("${field.icon} ")
-                                    append(field.label)
-                                },
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                "${field.type.name.lowercase()}${if (field.required) " \u00b7 required" else ""}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        // Edit / Delete
-                        IconButton(onClick = {
-                            editingFieldIndex = index
-                            showFieldEditor = true
-                        }) {
-                            Icon(Icons.Default.Edit, "Edit field")
-                        }
-                        IconButton(onClick = { showDeleteFieldDialog = index }) {
-                            Icon(Icons.Default.Delete, "Delete field",
-                                tint = MaterialTheme.colorScheme.error)
                         }
                     }
+                    Spacer(Modifier.height(4.dp))
                 }
             }
 
@@ -289,32 +303,83 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
                 )
             } else {
                 editedPrompts.forEachIndexed { index, prompt ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
-                    ) {
-                        Row(
-                            Modifier.padding(start = 12.dp, end = 4.dp).fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(prompt.label, style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    prompt.prompt.take(80) + if (prompt.prompt.length > 80) "..." else "",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    key(prompt.label + index) {
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                if (value == SwipeToDismissBoxValue.StartToEnd) {
+                                    val deletedPrompt = prompt
+                                    val deletedIndex = index
+                                    editedPrompts = editedPrompts.toMutableList().also { it.removeAt(index) }
+                                    scope.launch {
+                                        val result = snackbarHost.showSnackbar(
+                                            message = "\"${deletedPrompt.label}\" deleted",
+                                            actionLabel = "Undo",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                        if (result == SnackbarResult.ActionPerformed) {
+                                            editedPrompts = editedPrompts.toMutableList().also {
+                                                it.add(deletedIndex.coerceAtMost(it.size), deletedPrompt)
+                                            }
+                                        }
+                                    }
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        )
+
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            backgroundContent = {
+                                val color by animateColorAsState(
+                                    when (dismissState.targetValue) {
+                                        SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.error
+                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                    },
+                                    label = "bg"
                                 )
-                            }
-                            IconButton(onClick = {
-                                editingPromptIndex = index
-                                showPromptEditor = true
-                            }) {
-                                Icon(Icons.Default.Edit, "Edit prompt")
-                            }
-                            IconButton(onClick = { showDeletePromptDialog = index }) {
-                                Icon(Icons.Default.Delete, "Delete prompt",
-                                    tint = MaterialTheme.colorScheme.error)
+                                Box(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .background(color, shape = MaterialTheme.shapes.small)
+                                        .padding(horizontal = 20.dp),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "Delete",
+                                        tint = MaterialTheme.colorScheme.onError
+                                    )
+                                }
+                            },
+                            enableDismissFromEndToStart = false,
+                            enableDismissFromStartToEnd = true
+                        ) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        editingPromptIndex = index
+                                        showPromptEditor = true
+                                    }
+                            ) {
+                                Row(
+                                    Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(prompt.label, style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            prompt.prompt.take(80) + if (prompt.prompt.length > 80) "..." else "",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                             }
                         }
+                        Spacer(Modifier.height(4.dp))
                     }
                 }
             }
