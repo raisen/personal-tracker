@@ -330,7 +330,7 @@ function renderPromptList(container: HTMLElement, config: TrackerConfig): void {
       <div class="field-list-item-content">
         <div class="field-info">
           <div class="field-name">${escHtml(prompt.label)}</div>
-          <div class="field-meta">${escHtml(prompt.prompt.slice(0, 80))}${prompt.prompt.length > 80 ? '...' : ''}</div>
+          <div class="field-meta">${getDataRangeLabel(prompt.dataRangeDays)} · ${escHtml(prompt.prompt.slice(0, 60))}${prompt.prompt.length > 60 ? '...' : ''}</div>
         </div>
       </div>
     `;
@@ -362,11 +362,30 @@ function renderPromptList(container: HTMLElement, config: TrackerConfig): void {
   });
 }
 
+const DATA_RANGE_PRESETS = [
+  { value: '', label: 'All data' },
+  { value: '7', label: 'Last 7 days' },
+  { value: '30', label: 'Last 30 days' },
+  { value: '90', label: 'Last 90 days' },
+  { value: '365', label: 'Last year' },
+  { value: 'custom', label: 'Custom...' },
+];
+
+function getDataRangeLabel(days: number | null | undefined): string {
+  if (!days) return 'All data';
+  const preset = DATA_RANGE_PRESETS.find((p) => p.value === String(days));
+  return preset ? preset.label : `Last ${days} days`;
+}
+
 function openPromptEditor(
   existing: InsightPrompt | null,
   onSave: (prompt: InsightPrompt) => void,
 ): void {
   const modal = createModal(existing ? 'Edit Prompt' : 'Add Prompt');
+
+  const existingRange = existing?.dataRangeDays;
+  const isPreset = !existingRange || ['7', '30', '90', '365'].includes(String(existingRange));
+  const selectValue = existingRange ? (isPreset ? String(existingRange) : 'custom') : '';
 
   modal.body.innerHTML = `
     <div class="form-group">
@@ -377,7 +396,24 @@ function openPromptEditor(
       <label class="form-label">Prompt</label>
       <textarea class="form-textarea" id="prompt-text" rows="6" placeholder="e.g. Analyze my mood trends over the past week...">${existing ? escHtml(existing.prompt) : ''}</textarea>
     </div>
+    <div class="form-group">
+      <label class="form-label">Data Range</label>
+      <select class="form-select" id="prompt-range">
+        ${DATA_RANGE_PRESETS.map((p) => `<option value="${p.value}"${p.value === selectValue ? ' selected' : ''}>${escHtml(p.label)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group" id="custom-range-group" style="display:${selectValue === 'custom' ? 'block' : 'none'}">
+      <label class="form-label">Number of days</label>
+      <input type="number" class="form-input" id="prompt-range-custom" min="1" value="${existingRange && !isPreset ? existingRange : ''}" placeholder="e.g. 14" />
+    </div>
   `;
+
+  // Toggle custom input visibility
+  const rangeSelect = modal.dialog.querySelector('#prompt-range') as HTMLSelectElement;
+  const customGroup = modal.dialog.querySelector('#custom-range-group') as HTMLElement;
+  rangeSelect.addEventListener('change', () => {
+    customGroup.style.display = rangeSelect.value === 'custom' ? 'block' : 'none';
+  });
 
   const saveBtn = document.createElement('button');
   saveBtn.className = 'btn btn-primary';
@@ -405,7 +441,20 @@ function openPromptEditor(
       return;
     }
 
-    onSave({ label, prompt });
+    const rangeValue = rangeSelect.value;
+    let dataRangeDays: number | null = null;
+    if (rangeValue === 'custom') {
+      const customInput = (modal.dialog.querySelector('#prompt-range-custom') as HTMLInputElement).value.trim();
+      if (!customInput || Number(customInput) < 1) {
+        showToast('Please enter a valid number of days', 'error');
+        return;
+      }
+      dataRangeDays = Number(customInput);
+    } else if (rangeValue) {
+      dataRangeDays = Number(rangeValue);
+    }
+
+    onSave({ label, prompt, dataRangeDays });
     modal.close();
   });
 

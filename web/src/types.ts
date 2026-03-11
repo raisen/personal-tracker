@@ -25,6 +25,7 @@ export interface FieldConfig {
 export interface InsightPrompt {
   label: string;
   prompt: string;
+  dataRangeDays?: number | null;
 }
 
 export interface TrackerConfig {

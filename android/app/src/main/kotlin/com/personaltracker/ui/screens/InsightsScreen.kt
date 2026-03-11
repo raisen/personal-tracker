@@ -15,7 +15,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.personaltracker.data.*
+import com.personaltracker.ui.components.getDataRangeLabel
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 @Composable
 fun InsightsScreen() {
@@ -65,6 +68,15 @@ fun InsightsScreen() {
     fun buildClipboardText(prompt: String, entries: List<Entry>, cfg: TrackerConfig): String {
         val dataText = formatEntries(entries, cfg)
         return "$prompt\n\nHere is my tracker data (${entries.size} entries):\n\n$dataText"
+    }
+
+    fun filterEntriesByRange(entries: List<Entry>, dataRangeDays: Int?): List<Entry> {
+        if (dataRangeDays == null) return entries
+        val cutoff = Instant.now().minus(dataRangeDays.toLong(), ChronoUnit.DAYS).toString().substring(0, 10)
+        return entries.filter { entry ->
+            val entryDate = ((entry.fields["date"] as? String) ?: entry._created).substring(0, 10)
+            entryDate >= cutoff
+        }
     }
 
     LaunchedEffect(Unit) { loadData() }
@@ -126,8 +138,9 @@ fun InsightsScreen() {
                 prompts.forEach { p ->
                     ElevatedCard(
                         onClick = {
+                            val filtered = filterEntriesByRange(entries, p.dataRangeDays)
                             copyToClipboard(
-                                buildClipboardText(p.prompt, entries, cfg),
+                                buildClipboardText(p.prompt, filtered, cfg),
                                 p.label
                             )
                         },
@@ -138,11 +151,17 @@ fun InsightsScreen() {
                             modifier = Modifier.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                p.label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f)
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    p.label,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Text(
+                                    getDataRangeLabel(p.dataRangeDays),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             Text(
                                 "Tap to copy",
                                 style = MaterialTheme.typography.labelSmall,

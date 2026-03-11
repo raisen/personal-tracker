@@ -29,7 +29,8 @@ data class FieldConfig(
 
 data class InsightPrompt(
     val label: String,
-    val prompt: String
+    val prompt: String,
+    val dataRangeDays: Int? = null
 )
 
 data class TrackerConfig(
