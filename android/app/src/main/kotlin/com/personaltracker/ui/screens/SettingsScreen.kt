@@ -1,8 +1,10 @@
 package com.personaltracker.ui.screens
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -204,18 +206,31 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
                     isDragging = isDragging,
                     itemKey = { it.id }
                 ) { field ->
-                    Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
-                        Text(
-                            buildString {
-                                if (field.icon.isNotEmpty()) append("${field.icon} ")
-                                append(field.label)
-                            },
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                    Row(
+                        Modifier.weight(1f).padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (field.required) {
+                                Box(
+                                    Modifier
+                                        .padding(end = 6.dp)
+                                        .size(6.dp)
+                                        .background(MaterialTheme.colorScheme.error, CircleShape)
+                                )
+                            }
+                            Text(
+                                buildString {
+                                    if (field.icon.isNotEmpty()) append("${field.icon} ")
+                                    append(field.label)
+                                },
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                         Text(
                             buildString {
                                 append(field.type.name.lowercase())
-                                if (field.required) append(" \u00b7 required")
                                 if (field.showInList == false) append(" \u00b7 hidden")
                             },
                             style = MaterialTheme.typography.bodySmall,
