@@ -33,6 +33,26 @@ function buildClipboardText(
   return `${prompt}\n\nHere is my tracker data (${entries.length} entries):\n\n${dataText}`;
 }
 
+function filterEntriesByRange(
+  entries: Entry[],
+  dataRangeDays: number | null | undefined,
+): Entry[] {
+  if (!dataRangeDays) return entries;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - dataRangeDays);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  return entries.filter((e) => {
+    const entryDate = (e['date'] as string) || e._created;
+    return entryDate.slice(0, 10) >= cutoffStr;
+  });
+}
+
+function getDataRangeLabel(days: number | null | undefined): string {
+  if (!days) return 'All data';
+  const presets: Record<number, string> = { 7: 'Last 7 days', 30: 'Last 30 days', 90: 'Last 90 days', 365: 'Last year' };
+  return presets[days] || `Last ${days} days`;
+}
+
 export async function renderInsights(container: HTMLElement): Promise<void> {
   const token = getToken();
   const gistId = getGistId();
@@ -104,9 +124,11 @@ function renderInsightsView(
       const btn = document.createElement('button');
       btn.className = 'btn btn-secondary mb-8 btn-block';
       btn.style.textAlign = 'left';
-      btn.textContent = p.label;
+      const rangeLabel = getDataRangeLabel(p.dataRangeDays);
+      btn.innerHTML = `<span>${escHtml(p.label)}<br><span class="text-secondary text-sm">${escHtml(rangeLabel)}</span></span>`;
       btn.addEventListener('click', () => {
-        copyToClipboard(buildClipboardText(p.prompt, entries, config), p.label);
+        const filtered = filterEntriesByRange(entries, p.dataRangeDays);
+        copyToClipboard(buildClipboardText(p.prompt, filtered, config), p.label);
       });
       btnContainer.appendChild(btn);
     }
@@ -133,6 +155,10 @@ function renderInsightsView(
     const dataText = formatEntries(entries, config);
     copyToClipboard(dataText, 'Raw data');
   });
+}
+
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 async function copyToClipboard(text: string, label: string): Promise<void> {
