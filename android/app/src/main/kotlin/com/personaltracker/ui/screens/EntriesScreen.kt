@@ -326,109 +326,110 @@ fun EntriesScreen() {
             label = "listEditTransition"
         ) { currentEditingId ->
             if (currentEditingId != null) {
-                // Edit/New Entry Form
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { goBackToList() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            if (editEntry != null) "Edit Entry" else "New Entry",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    for (field in cfg.fields) {
-                        com.personaltracker.ui.components.FieldRenderer(
-                            field = field,
-                            value = fieldValues[field.id],
-                            onValueChange = { newVal ->
-                                fieldValues = fieldValues.toMutableMap().apply { put(field.id, newVal) }
+                // Edit/New Entry Form — static header + scrollable fields
+                val isEdit = editEntry != null
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Static header with back, title, cancel, save
+                    Surface(tonalElevation = 2.dp) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = { goBackToList() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                             }
-                        )
-                        Spacer(Modifier.height(8.dp))
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    val isEdit = editEntry != null
-                    Button(
-                        shape = RoundedCornerShape(12.dp),
-                        onClick = {
-                            for (field in cfg.fields) {
-                                if (field.required) {
-                                    val v = fieldValues[field.id]
-                                    if (v == null || v == "") {
-                                        scope.launch { snackbarHost.showSnackbar("${field.label} is required") }
-                                        return@Button
-                                    }
-                                }
-                            }
-
-                            scope.launch {
-                                isSaving = true
-                                try {
-                                    val token = AuthManager.getToken()!!
-                                    val gistId = AuthManager.getGistId()!!
-                                    val (_, latestData) = GistApi.loadGist(token, gistId)
-                                    val entries = latestData.entries.toMutableList()
-
-                                    val now = Instant.now().toString()
-                                    val entry = Entry(
-                                        _id = editEntry?._id ?: now,
-                                        _created = editEntry?._created ?: now,
-                                        _updated = now,
-                                        fields = fieldValues.toMutableMap()
-                                    )
-
-                                    if (isEdit) {
-                                        val idx = entries.indexOfFirst { it._id == editEntry?._id }
-                                        if (idx >= 0) entries[idx] = entry else entries.add(entry)
-                                    } else {
-                                        entries.add(entry)
-                                    }
-
-                                    GistApi.saveData(token, gistId, TrackerData(entries))
-                                    allEntries = entries.sortedByDescending { it._created }
-                                    snackbarHost.showSnackbar(if (isEdit) "Entry updated!" else "Entry saved!")
-                                    goBackToList()
-                                } catch (e: Exception) {
-                                    snackbarHost.showSnackbar("Failed to save: ${e.message}")
-                                } finally {
-                                    isSaving = false
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isSaving
-                    ) {
-                        if (isSaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
+                            Text(
+                                if (isEdit) "Edit Entry" else "New Entry",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f)
                             )
+                            TextButton(onClick = { goBackToList() }) {
+                                Text("Cancel")
+                            }
+                            Button(
+                                onClick = {
+                                    for (field in cfg.fields) {
+                                        if (field.required) {
+                                            val v = fieldValues[field.id]
+                                            if (v == null || v == "") {
+                                                scope.launch { snackbarHost.showSnackbar("${field.label} is required") }
+                                                return@Button
+                                            }
+                                        }
+                                    }
+
+                                    scope.launch {
+                                        isSaving = true
+                                        try {
+                                            val token = AuthManager.getToken()!!
+                                            val gistId = AuthManager.getGistId()!!
+                                            val (_, latestData) = GistApi.loadGist(token, gistId)
+                                            val entries = latestData.entries.toMutableList()
+
+                                            val now = Instant.now().toString()
+                                            val entry = Entry(
+                                                _id = editEntry?._id ?: now,
+                                                _created = editEntry?._created ?: now,
+                                                _updated = now,
+                                                fields = fieldValues.toMutableMap()
+                                            )
+
+                                            if (isEdit) {
+                                                val idx = entries.indexOfFirst { it._id == editEntry?._id }
+                                                if (idx >= 0) entries[idx] = entry else entries.add(entry)
+                                            } else {
+                                                entries.add(entry)
+                                            }
+
+                                            GistApi.saveData(token, gistId, TrackerData(entries))
+                                            allEntries = entries.sortedByDescending { it._created }
+                                            snackbarHost.showSnackbar(if (isEdit) "Entry updated!" else "Entry saved!")
+                                            goBackToList()
+                                        } catch (e: Exception) {
+                                            snackbarHost.showSnackbar("Failed to save: ${e.message}")
+                                        } finally {
+                                            isSaving = false
+                                        }
+                                    }
+                                },
+                                enabled = !isSaving,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                if (isSaving) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                }
+                                Text(if (isSaving) "Saving..." else "Save")
+                            }
                             Spacer(Modifier.width(8.dp))
                         }
-                        Text(
-                            when {
-                                isSaving -> "Saving..."
-                                isEdit -> "Update Entry"
-                                else -> "Save Entry"
-                            }
-                        )
+                    }
+
+                    // Scrollable fields
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        for (field in cfg.fields) {
+                            com.personaltracker.ui.components.FieldRenderer(
+                                field = field,
+                                value = fieldValues[field.id],
+                                onValueChange = { newVal ->
+                                    fieldValues = fieldValues.toMutableMap().apply { put(field.id, newVal) }
+                                }
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
+                        Spacer(Modifier.height(32.dp))
                     }
                 }
             } else {
