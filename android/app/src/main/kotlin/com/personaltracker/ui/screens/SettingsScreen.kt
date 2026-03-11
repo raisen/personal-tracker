@@ -2,11 +2,13 @@ package com.personaltracker.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.personaltracker.data.*
 import com.personaltracker.ui.components.FieldEditorDialog
@@ -148,24 +150,29 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
                 )
                 .padding(16.dp)
         ) {
-            Text("Settings", style = MaterialTheme.typography.headlineSmall)
+            Text(
+                "Settings",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(20.dp))
 
             // Tracker title
-            Text("Tracker Title", style = MaterialTheme.typography.titleMedium)
+            Text("Tracker Title", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
 
             // Fields list
-            Text("Fields (${editedFields.size})", style = MaterialTheme.typography.titleMedium)
+            Text("Fields (${editedFields.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
 
             ReorderableItemList(
@@ -209,16 +216,17 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             OutlinedButton(
                 onClick = { editingFieldIndex = null; showFieldEditor = true },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             ) { Text("+ Add Field") }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
 
             // Prompts list
-            Text("Insight Prompts (${editedPrompts.size})", style = MaterialTheme.typography.titleMedium)
+            Text("Insight Prompts (${editedPrompts.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
 
             if (editedPrompts.isEmpty()) {
@@ -264,16 +272,18 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             OutlinedButton(
                 onClick = { editingPromptIndex = null; showPromptEditor = true },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             ) { Text("+ Add Prompt") }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
 
             // Save
             Button(
+                shape = RoundedCornerShape(12.dp),
                 onClick = {
                     scope.launch {
                         isSaving = true
@@ -302,17 +312,18 @@ fun SettingsScreen(onDisconnect: () -> Unit) {
             Spacer(Modifier.height(24.dp))
 
             // Connection info
-            Text("Connection", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(4.dp))
+            Text("Connection", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(8.dp))
             Text(
                 "Gist ID: ${AuthManager.getGistId() ?: "none"}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             OutlinedButton(
                 onClick = { showDisconnectDialog = true },
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.error
                 )

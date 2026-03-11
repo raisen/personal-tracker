@@ -2,9 +2,14 @@ package com.personaltracker.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 private val LightColorScheme = lightColorScheme(
     primary = androidx.compose.ui.graphics.Color(0xFF6C5CE7),
@@ -40,8 +45,17 @@ fun PersonalTrackerTheme(
         else -> LightColorScheme
     }
 
+    val shapes = Shapes(
+        extraSmall = RoundedCornerShape(8.dp),
+        small = RoundedCornerShape(10.dp),
+        medium = RoundedCornerShape(14.dp),
+        large = RoundedCornerShape(18.dp),
+        extraLarge = RoundedCornerShape(24.dp)
+    )
+
     MaterialTheme(
         colorScheme = colorScheme,
+        shapes = shapes,
         content = content
     )
 }
