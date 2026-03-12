@@ -54,7 +54,7 @@ private enum class DateRange(val label: String, val days: Int?) {
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun EntriesScreen() {
+fun EntriesScreen(openNewEntry: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHost = remember { SnackbarHostState() }
@@ -71,6 +71,7 @@ fun EntriesScreen() {
     var fieldValues by remember { mutableStateOf<MutableMap<String, Any?>>(mutableMapOf()) }
     var isSaving by remember { mutableStateOf(false) }
     var entryToDelete by remember { mutableStateOf<Entry?>(null) }
+    var pendingNewEntry by remember { mutableStateOf(openNewEntry) }
 
     // Layout toggle
     val prefs = remember {
@@ -134,17 +135,23 @@ fun EntriesScreen() {
                 WidgetDataManager.cacheData(context, cfg, data)
                 WidgetRefreshWorker.updateWidgets(context)
 
-                // Restore editing state
-                val savedId = prefs.getString(PREF_EDITING_ENTRY, null)
-                if (savedId != null) {
-                    if (savedId == "__new__") {
-                        openEditForm(null, cfg)
-                    } else {
-                        val entry = data.entries.find { it._id == savedId }
-                        if (entry != null) {
-                            openEditForm(entry, cfg)
+                // Open new entry form if launched from widget
+                if (pendingNewEntry) {
+                    pendingNewEntry = false
+                    openEditForm(null, cfg)
+                } else {
+                    // Restore editing state
+                    val savedId = prefs.getString(PREF_EDITING_ENTRY, null)
+                    if (savedId != null) {
+                        if (savedId == "__new__") {
+                            openEditForm(null, cfg)
                         } else {
-                            saveEditState(null)
+                            val entry = data.entries.find { it._id == savedId }
+                            if (entry != null) {
+                                openEditForm(entry, cfg)
+                            } else {
+                                saveEditState(null)
+                            }
                         }
                     }
                 }

@@ -8,6 +8,8 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -23,6 +25,11 @@ import com.personaltracker.MainActivity
 import com.personaltracker.data.WidgetDataManager
 
 class QuickEntryWidget : GlanceAppWidget() {
+    companion object {
+        val ACTION_KEY = ActionParameters.Key<String>("action")
+        const val ACTION_NEW_ENTRY = "new_entry"
+    }
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val config = WidgetDataManager.getCachedConfig(context)
         val title = config?.title ?: "Personal Tracker"
@@ -40,7 +47,9 @@ class QuickEntryWidget : GlanceAppWidget() {
             modifier = GlanceModifier
                 .fillMaxSize()
                 .background(GlanceTheme.colors.surface)
-                .clickable(actionStartActivity<MainActivity>()),
+                .clickable(actionStartActivity<MainActivity>(
+                    actionParametersOf(ACTION_KEY to ACTION_NEW_ENTRY)
+                )),
             contentAlignment = Alignment.Center
         ) {
             Row(
