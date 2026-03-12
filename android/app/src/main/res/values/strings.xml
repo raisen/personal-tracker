@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Personal Tracker</string>
+    <string name="widget_quick_entry_description">Quickly add a new tracker entry</string>
+    <string name="widget_today_summary_description">View today\'s tracked data at a glance</string>
+    <string name="widget_streak_description">See your tracking streak</string>
+</resources>
