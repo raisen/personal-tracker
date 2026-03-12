@@ -328,9 +328,9 @@ function renderPromptList(container: HTMLElement, config: TrackerConfig): void {
     item.innerHTML = `
       <div class="swipe-delete-bg"><span>Delete</span></div>
       <div class="field-list-item-content">
-        <div class="field-info">
+        <div class="field-info field-info-stacked">
           <div class="field-name">${escHtml(prompt.label)}</div>
-          <div class="field-meta">${getDataRangeLabel(prompt.dataRangeDays)} · ${escHtml(prompt.prompt.slice(0, 60))}${prompt.prompt.length > 60 ? '...' : ''}</div>
+          <div class="field-meta field-meta-wrap">${getDataRangeLabel(prompt.dataRangeDays)} · ${escHtml(prompt.prompt.slice(0, 120))}${prompt.prompt.length > 120 ? '...' : ''}</div>
         </div>
       </div>
     `;

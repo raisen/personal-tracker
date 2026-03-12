@@ -477,6 +477,18 @@ body {
   white-space: nowrap;
 }
 
+.field-list-item .field-meta.field-meta-wrap {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.field-info.field-info-stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
 .field-required-dot {
   display: inline-block;
   width: 6px;
@@ -609,6 +621,217 @@ dialog h2 {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+/* Stats strip */
+.stats-strip {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.stat-card {
+  flex: 1;
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  text-align: center;
+}
+
+.stat-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.stat-secondary {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.stat-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+/* Filter chips */
+.filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-family: inherit;
+}
+
+.chip:hover {
+  background: var(--bg-hover);
+}
+
+.chip-selected {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.chip-selected:hover {
+  background: var(--accent-hover);
+}
+
+.chip-sm {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+/* Custom date range row */
+.custom-date-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.custom-date-row .form-input {
+  flex: 1;
+}
+
+/* Filters panel */
+.filters-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.filters-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.filters-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.filter-group {
+  margin-bottom: 10px;
+}
+
+.filter-group:last-child {
+  margin-bottom: 0;
+}
+
+.filter-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.filter-range-row {
+  display: flex;
+  gap: 8px;
+}
+
+.filter-range-row .form-input {
+  flex: 1;
+}
+
+.form-input-sm {
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+.filter-chips .chip {
+  margin-bottom: 0;
+}
+
+/* Icon buttons */
+.btn-icon {
+  padding: 6px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.btn-active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.filter-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Entry card expanded style */
+.entry-expanded {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.entry-date-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.entry-date-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.entry-relative-date {
+  font-size: 0.7rem;
+  background: var(--bg-hover);
+  padding: 2px 8px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+}
+
+.entry-compact .entry-date-header {
+  display: none;
+}
+
+.entry-expanded .entry-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
 /* Responsive */
