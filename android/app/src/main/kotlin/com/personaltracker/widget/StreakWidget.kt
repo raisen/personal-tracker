@@ -2,6 +2,7 @@ package com.personaltracker.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -18,7 +19,6 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import android.graphics.Color
 import com.personaltracker.MainActivity
 import com.personaltracker.data.WidgetDataManager
 
@@ -38,7 +38,7 @@ class StreakWidget : GlanceAppWidget() {
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(ColorProvider(Color.WHITE, Color.parseColor("#1E1E2E")))
+                .background(GlanceTheme.colors.surface)
                 .clickable(actionStartActivity<MainActivity>()),
             contentAlignment = Alignment.Center
         ) {
@@ -58,9 +58,9 @@ class StreakWidget : GlanceAppWidget() {
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (streak > 0) {
-                            ColorProvider(Color.parseColor("#E17055"), Color.parseColor("#FAB1A0"))
+                            ColorProvider(Color(0xFFE17055))
                         } else {
-                            ColorProvider(Color.GRAY, Color.LTGRAY)
+                            GlanceTheme.colors.onSurfaceVariant
                         }
                     )
                 )
@@ -68,7 +68,7 @@ class StreakWidget : GlanceAppWidget() {
                     text = if (streak == 1) "day" else "days",
                     style = TextStyle(
                         fontSize = 11.sp,
-                        color = ColorProvider(Color.GRAY, Color.LTGRAY)
+                        color = GlanceTheme.colors.onSurfaceVariant
                     )
                 )
             }

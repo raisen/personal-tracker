@@ -2,6 +2,7 @@ package com.personaltracker.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -18,7 +19,6 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import android.graphics.Color
 import com.personaltracker.MainActivity
 import com.personaltracker.data.WidgetDataManager
 
@@ -39,7 +39,7 @@ class QuickEntryWidget : GlanceAppWidget() {
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(ColorProvider(Color.WHITE, Color.parseColor("#1E1E2E")))
+                .background(GlanceTheme.colors.surface)
                 .clickable(actionStartActivity<MainActivity>()),
             contentAlignment = Alignment.Center
         ) {
@@ -53,7 +53,7 @@ class QuickEntryWidget : GlanceAppWidget() {
                     style = TextStyle(
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
-                        color = ColorProvider(Color.parseColor("#6C5CE7"), Color.parseColor("#A29BFE"))
+                        color = ColorProvider(Color(0xFF6C5CE7))
                     )
                 )
                 Spacer(modifier = GlanceModifier.width(8.dp))
@@ -62,7 +62,7 @@ class QuickEntryWidget : GlanceAppWidget() {
                     style = TextStyle(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = ColorProvider(Color.parseColor("#333333"), Color.parseColor("#E0E0E0"))
+                        color = GlanceTheme.colors.onSurface
                     ),
                     maxLines = 1
                 )
