@@ -29,7 +29,7 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
 val bottomNavScreens = listOf(Screen.Entries, Screen.Insights, Screen.Settings)
 
 @Composable
-fun PersonalTrackerApp() {
+fun PersonalTrackerApp(openNewEntry: Boolean = false) {
     var isAuthenticated by remember { mutableStateOf(AuthManager.isAuthenticated()) }
 
     if (!isAuthenticated) {
@@ -96,7 +96,7 @@ fun PersonalTrackerApp() {
             }
         ) {
             composable(Screen.Entries.route) {
-                EntriesScreen()
+                EntriesScreen(openNewEntry = openNewEntry)
             }
             composable(Screen.Insights.route) {
                 InsightsScreen()
