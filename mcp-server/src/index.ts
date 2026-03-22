@@ -9,15 +9,9 @@ import { z } from "zod";
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GIST_ID = process.env.GIST_ID;
 const PORT = parseInt(process.env.PORT || "3000", 10);
-const API_TOKEN = process.env.API_TOKEN; // Optional: secret token clients can send to authenticate
-
 if (!GITHUB_TOKEN) {
   console.error("GITHUB_TOKEN environment variable is required");
   process.exit(1);
-}
-
-if (!API_TOKEN) {
-  console.warn("API_TOKEN not set — MCP endpoint is unauthenticated");
 }
 
 const server = new McpServer({
@@ -342,23 +336,16 @@ const httpServer = createServer(async (req, res) => {
   const parsedUrl = new URL(req.url || "/", `http://${req.headers.host}`);
 
   if (parsedUrl.pathname === "/mcp") {
-    // Verify token if API_TOKEN is configured
-    if (API_TOKEN) {
-      const authHeader = req.headers.authorization;
-      const queryToken = parsedUrl.searchParams.get("token");
-      const providedToken = authHeader?.replace("Bearer ", "") || queryToken;
-
-      if (!providedToken || providedToken !== API_TOKEN) {
-        res.writeHead(401, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Unauthorized" }));
-        return;
-      }
-    }
-
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });
     await server.connect(transport);
+
+    if (req.method === "GET") {
+      // Handle SSE connection for Streamable HTTP
+      await transport.handleRequest(req, res);
+      return;
+    }
 
     const body = await new Promise<string>((resolve) => {
       let data = "";
@@ -369,7 +356,7 @@ const httpServer = createServer(async (req, res) => {
     });
 
     const message = JSON.parse(body);
-    const response = await transport.handleRequest(req, res, message);
+    await transport.handleRequest(req, res, message);
     return;
   }
 
