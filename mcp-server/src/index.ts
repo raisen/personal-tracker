@@ -9,9 +9,15 @@ import { z } from "zod";
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GIST_ID = process.env.GIST_ID;
 const PORT = parseInt(process.env.PORT || "3000", 10);
+const API_TOKEN = process.env.API_TOKEN; // Secret token clients must send to authenticate
 
 if (!GITHUB_TOKEN) {
   console.error("GITHUB_TOKEN environment variable is required");
+  process.exit(1);
+}
+
+if (!API_TOKEN) {
+  console.error("API_TOKEN environment variable is required (used to authenticate MCP clients)");
   process.exit(1);
 }
 
@@ -335,6 +341,14 @@ const httpServer = createServer(async (req, res) => {
   }
 
   if (req.url === "/mcp" && req.method === "POST") {
+    // Verify bearer token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Bearer ${API_TOKEN}`) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });
