@@ -9,7 +9,7 @@ import { z } from "zod";
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GIST_ID = process.env.GIST_ID;
 const PORT = parseInt(process.env.PORT || "3000", 10);
-const API_TOKEN = process.env.API_TOKEN; // Secret token clients must send to authenticate
+const API_TOKEN = process.env.API_TOKEN; // Optional: secret token clients can send to authenticate
 
 if (!GITHUB_TOKEN) {
   console.error("GITHUB_TOKEN environment variable is required");
@@ -17,8 +17,7 @@ if (!GITHUB_TOKEN) {
 }
 
 if (!API_TOKEN) {
-  console.error("API_TOKEN environment variable is required (used to authenticate MCP clients)");
-  process.exit(1);
+  console.warn("API_TOKEN not set — MCP endpoint is unauthenticated");
 }
 
 const server = new McpServer({
@@ -342,16 +341,18 @@ const httpServer = createServer(async (req, res) => {
 
   const parsedUrl = new URL(req.url || "/", `http://${req.headers.host}`);
 
-  if (parsedUrl.pathname === "/mcp" && req.method === "POST") {
-    // Verify token via Bearer header OR ?token= query param
-    const authHeader = req.headers.authorization;
-    const queryToken = parsedUrl.searchParams.get("token");
-    const providedToken = authHeader?.replace("Bearer ", "") || queryToken;
+  if (parsedUrl.pathname === "/mcp") {
+    // Verify token if API_TOKEN is configured
+    if (API_TOKEN) {
+      const authHeader = req.headers.authorization;
+      const queryToken = parsedUrl.searchParams.get("token");
+      const providedToken = authHeader?.replace("Bearer ", "") || queryToken;
 
-    if (!providedToken || providedToken !== API_TOKEN) {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Unauthorized" }));
-      return;
+      if (!providedToken || providedToken !== API_TOKEN) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
     }
 
     const transport = new StreamableHTTPServerTransport({
