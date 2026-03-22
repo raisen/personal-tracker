@@ -1,0 +1,18 @@
+# Render Blueprint - deploy with "New > Blueprint" in Render dashboard
+# Docs: https://docs.render.com/blueprint-spec
+
+services:
+  - type: web
+    name: personal-tracker-mcp
+    runtime: docker
+    dockerfilePath: mcp-server/Dockerfile
+    dockerContext: mcp-server
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: GITHUB_TOKEN
+        sync: false # You'll set this manually in the Render dashboard
+      - key: GIST_ID
+        sync: false # Optional - can also be passed per MCP request
+      - key: PORT
+        value: 3000
