@@ -340,10 +340,15 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
 
-  if (req.url === "/mcp" && req.method === "POST") {
-    // Verify bearer token
+  const parsedUrl = new URL(req.url || "/", `http://${req.headers.host}`);
+
+  if (parsedUrl.pathname === "/mcp" && req.method === "POST") {
+    // Verify token via Bearer header OR ?token= query param
     const authHeader = req.headers.authorization;
-    if (!authHeader || authHeader !== `Bearer ${API_TOKEN}`) {
+    const queryToken = parsedUrl.searchParams.get("token");
+    const providedToken = authHeader?.replace("Bearer ", "") || queryToken;
+
+    if (!providedToken || providedToken !== API_TOKEN) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
