@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "http";
+import { jwtVerify } from "jose";
 import { loadGist, saveData, listTrackerGists } from "./gist.js";
 import type { TrackerConfig, TrackerData, Entry } from "./gist.js";
 import { z } from "zod";
@@ -9,16 +10,44 @@ import { z } from "zod";
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GIST_ID = process.env.GIST_ID;
 const PORT = parseInt(process.env.PORT || "3000", 10);
-const API_TOKEN = process.env.API_TOKEN; // Secret token clients must send to authenticate
+const API_TOKEN = process.env.API_TOKEN; // Legacy shared-secret for direct MCP clients (mobile/web/iOS)
+const HUB_SIGNING_SECRET = process.env.HUB_SIGNING_SECRET; // HMAC secret for mcp-hub gateway JWTs
 
-if (!API_TOKEN) {
-  console.error("API_TOKEN environment variable is required (used to authenticate MCP clients)");
+// Hub JWT claims
+const HUB_ISSUER = "mcp-hub";
+const HUB_AUDIENCE = "mcp-hub:tracker";
+const hubSecretKey = HUB_SIGNING_SECRET
+  ? new TextEncoder().encode(HUB_SIGNING_SECRET)
+  : null;
+
+if (!HUB_SIGNING_SECRET && !API_TOKEN) {
+  console.error(
+    "At least one of HUB_SIGNING_SECRET or API_TOKEN must be set to authenticate MCP clients"
+  );
   process.exit(1);
 }
 
 if (!GITHUB_TOKEN) {
   console.error("GITHUB_TOKEN environment variable is required");
   process.exit(1);
+}
+
+/**
+ * Verify a hub-issued JWT (HS256, iss=mcp-hub, aud=mcp-hub:tracker).
+ * Returns true if the token is a valid hub JWT, false otherwise.
+ */
+async function verifyHubJwt(token: string): Promise<boolean> {
+  if (!hubSecretKey) return false;
+  try {
+    await jwtVerify(token, hubSecretKey, {
+      algorithms: ["HS256"],
+      issuer: HUB_ISSUER,
+      audience: HUB_AUDIENCE,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Helper to get token and gist ID, supporting per-request overrides
@@ -373,13 +402,34 @@ const httpServer = createServer(async (req, res) => {
       return;
     }
 
-    // Verify token via Bearer header OR ?token= query param
+    // Auth: accept either an mcp-hub-issued JWT (preferred, via Bearer header)
+    // or the legacy API_TOKEN shared secret (Bearer header or ?token= query).
+    // This preserves access for direct clients (mobile/web/iOS connector)
+    // while requiring hub-JWT verification for traffic via the mcp-hub gateway.
     const authHeader = req.headers.authorization;
     const queryToken = url.searchParams.get("token");
-    const providedToken = authHeader?.replace("Bearer ", "") || queryToken;
+    const bearerToken = authHeader?.startsWith("Bearer ")
+      ? authHeader.slice("Bearer ".length).trim()
+      : undefined;
+    const providedToken = bearerToken || queryToken || undefined;
 
-    if (!providedToken || providedToken !== API_TOKEN) {
-      res.writeHead(401, { "Content-Type": "application/json" });
+    let authorized = false;
+    if (providedToken) {
+      // Try hub JWT first (any token containing two dots looks JWT-shaped).
+      if (hubSecretKey && providedToken.split(".").length === 3) {
+        authorized = await verifyHubJwt(providedToken);
+      }
+      // Fall back to legacy shared-secret check for non-hub clients.
+      if (!authorized && API_TOKEN && providedToken === API_TOKEN) {
+        authorized = true;
+      }
+    }
+
+    if (!authorized) {
+      res.writeHead(401, {
+        "Content-Type": "application/json",
+        "WWW-Authenticate": 'Bearer error="invalid_token"',
+      });
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
     }
